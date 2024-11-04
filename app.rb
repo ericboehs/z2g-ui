@@ -510,16 +510,16 @@ __END__
                         <table class="min-w-full divide-y divide-gray-300">
                           <thead class="bg-gray-50">
                             <tr>
-                              <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">Issue</th>
+                              <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 pl-8">Issue</th>
                               <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Pipeline</th>
                               <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Title</th>
                               <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Points</th>
                             </tr>
                           </thead>
-                          <tbody class="divide-y divide-gray-200 bg-white">
+                          <tbody class="divide-y divide-gray-200 bg-white pl-8">
                             <% sprint_issues.each do |issue| %>
                               <tr class="issue-row" data-sprint-name="<%= sprint.name %>">
-                                <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm">
+                                <td class="whitespace-nowrap py-4 pl-8 pr-3 text-sm">
                                   <input type="checkbox" 
                                          class="issue-checkbox mr-2"
                                          data-issue-number="<%= issue.number %>"
@@ -801,6 +801,22 @@ __END__
         }
       } else {
         delete selectedIssues[issueNumber];
+      }
+      
+      // Update the sprint checkbox based on all issue checkboxes
+      const sprintCheckbox = document.querySelector(`.sprint-checkbox[data-sprint-name="${sprintName}"]`);
+      const allIssues = document.querySelectorAll(`.issue-row[data-sprint-name="${sprintName}"] .issue-checkbox`);
+      const checkedIssues = Array.from(allIssues).filter(issueCheckbox => issueCheckbox.checked);
+      
+      if (checkedIssues.length === allIssues.length) {
+        sprintCheckbox.checked = true;
+        sprintCheckbox.indeterminate = false;
+      } else if (checkedIssues.length > 0) {
+        sprintCheckbox.checked = false;
+        sprintCheckbox.indeterminate = true;
+      } else {
+        sprintCheckbox.checked = false;
+        sprintCheckbox.indeterminate = false;
       }
       
       updateJsonDisplay();
