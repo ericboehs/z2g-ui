@@ -230,6 +230,7 @@ class App < Sinatra::Base
         if Time.now.to_i - cached[:timestamp] < CACHE_EXPIRY
           @github_project_id = cached[:project_id]
           @github_status_options = cached[:status_options]
+          @github_status_field = cached[:status_field]
           @github_sprint_field = cached[:sprint_field]
           return
         else
@@ -315,6 +316,7 @@ class App < Sinatra::Base
           status_data = JSON.parse(status_response.body)
           @github_status_options = status_data.dig('data', 'node', 'statusField', 'options')
           @github_sprint_field = status_data.dig('data', 'node', 'sprintField')
+          @github_status_field = status_data.dig('data', 'node', 'statusField')
         end
       end
     end
@@ -390,19 +392,21 @@ __END__
           </a>
         </div>
       </div>
-      <div class="flex gap-4 mb-4 text-sm text-gray-600">
-        <a href="<%= params[:workspace_url] %>" target="_blank" class="hover:text-gray-900 flex items-center gap-1">
-          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M10 6V8H5V19H16V14H18V20C18 20.5523 17.5523 21 17 21H4C3.44772 21 3 20.5523 3 20V7C3 6.44772 3.44772 6 4 6H10ZM21 3V11H19L18.9999 6.413L11.2071 14.2071L9.79289 12.7929L17.5849 5H13V3H21Z"/>
-          </svg>
-          ZenHub Workspace
-        </a>
-        <a href="<%= params[:github_url] %>" target="_blank" class="hover:text-gray-900 flex items-center gap-1">
-          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M10 6V8H5V19H16V14H18V20C18 20.5523 17.5523 21 17 21H4C3.44772 21 3 20.5523 3 20V7C3 6.44772 3.44772 6 4 6H10ZM21 3V11H19L18.9999 6.413L11.2071 14.2071L9.79289 12.7929L17.5849 5H13V3H21Z"/>
-          </svg>
-          GitHub Project
-        </a>
+      <div class="flex justify-between items-center mb-4">
+        <div class="flex gap-4 text-sm text-gray-600">
+          <a href="<%= params[:workspace_url] %>" target="_blank" class="hover:text-gray-900 flex items-center gap-1">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M10 6V8H5V19H16V14H18V20C18 20.5523 17.5523 21 17 21H4C3.44772 21 3 20.5523 3 20V7C3 6.44772 3.44772 6 4 6H10ZM21 3V11H19L18.9999 6.413L11.2071 14.2071L9.79289 12.7929L17.5849 5H13V3H21Z"/>
+            </svg>
+            ZenHub Workspace
+          </a>
+          <a href="<%= params[:github_url] %>" target="_blank" class="hover:text-gray-900 flex items-center gap-1">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M10 6V8H5V19H16V14H18V20C18 20.5523 17.5523 21 17 21H4C3.44772 21 3 20.5523 3 20V7C3 6.44772 3.44772 6 4 6H10ZM21 3V11H19L18.9999 6.413L11.2071 14.2071L9.79289 12.7929L17.5849 5H13V3H21Z"/>
+            </svg>
+            GitHub Project
+          </a>
+        </div>
       </div>
       <% if @all_sprints.any? %>
         <div class="mb-6">
@@ -438,13 +442,6 @@ __END__
                   <tr>
                     <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900">
                       <%= sprint %>
-                      <span class="text-xs text-gray-500 ml-2">
-                        (<%= @pipeline_data.values.flat_map { |data| 
-                          data[:issues].flat_map { |issue| 
-                            issue.sprints.nodes.find { |s| s.name == sprint }&.id 
-                          }
-                        }.compact.first %>)
-                      </span>
                     </td>
                     <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                       <select class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:max-w-xs sm:text-sm sm:leading-6">
@@ -509,64 +506,102 @@ __END__
           </a>
         </div>
       </div>
-      <div class="flex gap-4 mb-4 text-sm text-gray-600">
-        <a href="<%= params[:workspace_url] %>" target="_blank" class="hover:text-gray-900 flex items-center gap-1">
+      <div class="flex justify-between items-center mb-4">
+        <div class="flex gap-4 text-sm text-gray-600">
+          <a href="<%= params[:workspace_url] %>" target="_blank" class="hover:text-gray-900 flex items-center gap-1">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M10 6V8H5V19H16V14H18V20C18 20.5523 17.5523 21 17 21H4C3.44772 21 3 20.5523 3 20V7C3 6.44772 3.44772 6 4 6H10ZM21 3V11H19L18.9999 6.413L11.2071 14.2071L9.79289 12.7929L17.5849 5H13V3H21Z"/>
+            </svg>
+            ZenHub Workspace
+          </a>
+          <a href="<%= params[:github_url] %>" target="_blank" class="hover:text-gray-900 flex items-center gap-1">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M10 6V8H5V19H16V14H18V20C18 20.5523 17.5523 21 17 21H4C3.44772 21 3 20.5523 3 20V7C3 6.44772 3.44772 6 4 6H10ZM21 3V11H19L18.9999 6.413L11.2071 14.2071L9.79289 12.7929L17.5849 5H13V3H21Z"/>
+            </svg>
+            GitHub Project
+          </a>
+        </div>
+<a href="<%= params[:github_url] %>/settings/fields/<%= @github_status_field&.dig('name') %>" 
+           target="_blank" 
+           class="text-sm text-gray-600 hover:text-gray-900 flex items-center gap-1">
           <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
             <path d="M10 6V8H5V19H16V14H18V20C18 20.5523 17.5523 21 17 21H4C3.44772 21 3 20.5523 3 20V7C3 6.44772 3.44772 6 4 6H10ZM21 3V11H19L18.9999 6.413L11.2071 14.2071L9.79289 12.7929L17.5849 5H13V3H21Z"/>
           </svg>
-          ZenHub Workspace
-        </a>
-        <a href="<%= params[:github_url] %>" target="_blank" class="hover:text-gray-900 flex items-center gap-1">
-          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M10 6V8H5V19H16V14H18V20C18 20.5523 17.5523 21 17 21H4C3.44772 21 3 20.5523 3 20V7C3 6.44772 3.44772 6 4 6H10ZM21 3V11H19L18.9999 6.413L11.2071 14.2071L9.79289 12.7929L17.5849 5H13V3H21Z"/>
-          </svg>
-          GitHub Project
+          Need to add a Status?
         </a>
       </div>
-      <div class="space-y-4">
-        <% @workspace.pipelines.each do |pipeline| %>
-          <div class="bg-white shadow rounded-lg">
-            <div class="p-4 flex justify-between items-center">
-              <button onclick="toggleAccordion('<%= pipeline.id %>')" class="flex-1 text-left flex items-center">
-                <h3 class="text-lg font-medium text-gray-900">
-                  <%= pipeline.name %> 
-                  <span class="text-sm text-gray-500"><%= @pipeline_data[pipeline.id][:count] %> issues</span>
-                </h3>
-
-                <svg id="arrow-<%= pipeline.id %>" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 transition-transform duration-200 ml-2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
-                </svg>
-              </button>
-              <div class="ml-4">
-                <select class="block w-full rounded-md border-0 py-1.5 pl-3 pr-10 text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-indigo-600 sm:text-sm/6">
-                  <% @github_status_options&.each do |option| %>
-                    <option value="<%= option['id'] %>"><%= option['name'] %></option>
-                  <% end %>
-                </select>
-              </div>
-            </div>
-            <div id="content-<%= pipeline.id %>" class="hidden border-t border-gray-200">
-              <div class="p-4 space-y-2">
-                <% @pipeline_data[pipeline.id][:issues].each do |issue| %>
-                  <div class="flex items-center space-x-2">
-                    <a href="<%= issue.html_url %>" target="_blank" class="text-blue-600 hover:text-blue-800">
-                      #<%= issue.number %>
-                    </a>
-                    <span class="text-gray-700"><%= issue.title %></span>
-                    <% if issue.estimate&.value %>
-                      <span class="inline-flex items-center rounded-md bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600">
-                        <%= issue.estimate.value.round %> points
-                      </span>
-                    <% end %>
-                    <% if issue.sprints.total_count > 0 %>
-                      <span class="inline-flex items-center rounded-md bg-blue-100 px-2 py-1 text-xs font-medium text-blue-700">
-                        <%= issue.sprints.nodes.first.name %>
-                      </span>
-                    <% end %>
+      <div class="bg-white shadow rounded-lg overflow-hidden">
+        <table class="min-w-full divide-y divide-gray-300">
+          <thead class="bg-gray-50">
+            <tr>
+              <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">Pipeline</th>
+              <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">GitHub Status</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-200">
+            <% @workspace.pipelines.each do |pipeline| %>
+              <tr class="hover:bg-gray-50 cursor-pointer" onclick="toggleAccordion('<%= pipeline.id %>')">
+                <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm">
+                  <div class="flex items-center">
+                    <svg id="arrow-<%= pipeline.id %>" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 transition-transform duration-200 mr-2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+                    </svg>
+                    <span class="font-medium text-gray-900"><%= pipeline.name %></span>
+                    <span class="text-gray-500 ml-2">(<%= @pipeline_data[pipeline.id][:count] %> issues)</span>
                   </div>
-                <% end %>
-              </div>
-            </div>
+                </td>
+                <td class="whitespace-nowrap px-3 py-4 text-sm">
+                  <select class="block w-full rounded-md border-0 py-1.5 pl-3 pr-10 text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-indigo-600 sm:text-sm/6" onclick="event.stopPropagation()">
+                    <% @github_status_options&.each do |option| %>
+                      <option value="<%= option['id'] %>"><%= option['name'] %></option>
+                    <% end %>
+                  </select>
+                </td>
+              </tr>
+              <tr id="content-<%= pipeline.id %>" class="hidden">
+                <td colspan="2" class="px-0 border-t border-gray-200">
+                  <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-300">
+                      <thead class="bg-gray-50">
+                        <tr>
+                          <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">Issue</th>
+                          <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Title</th>
+                          <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Points</th>
+                          <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Sprint</th>
+                        </tr>
+                      </thead>
+                      <tbody class="divide-y divide-gray-200 bg-white">
+                        <% @pipeline_data[pipeline.id][:issues].each do |issue| %>
+                          <tr>
+                            <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm">
+                              <a href="<%= issue.html_url %>" target="_blank" class="text-blue-600 hover:text-blue-800">
+                                #<%= issue.number %>
+                              </a>
+                            </td>
+                            <td class="whitespace-normal px-3 py-4 text-sm text-gray-700">
+                              <%= issue.title %>
+                            </td>
+                            <td class="whitespace-nowrap px-3 py-4 text-sm">
+                              <% if issue.estimate&.value %>
+                                <span class="inline-flex items-center rounded-md bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600">
+                                  <%= issue.estimate.value.round %> points
+                                </span>
+                              <% end %>
+                            </td>
+                            <td class="whitespace-nowrap px-3 py-4 text-sm">
+                              <% if issue.sprints.total_count > 0 %>
+                                <span class="inline-flex items-center rounded-md bg-blue-100 px-2 py-1 text-xs font-medium text-blue-700">
+                                  <%= issue.sprints.nodes.first.name %>
+                                </span>
+                              <% end %>
+                            </td>
+                          </tr>
+                        <% end %>
+                      </tbody>
+                    </table>
+                  </div>
+                </td>
+              </tr>
           </div>
         <% end %>
       </div>
@@ -585,8 +620,13 @@ __END__
       const content = document.getElementById(`content-${id}`);
       const arrow = document.getElementById(`arrow-${id}`);
       
-      content.classList.toggle('hidden');
-      arrow.style.transform = content.classList.contains('hidden') ? '' : 'rotate(90deg)';
+      if (content.classList.contains('hidden')) {
+        content.classList.remove('hidden');
+        arrow.classList.add('rotate-90');
+      } else {
+        content.classList.add('hidden');
+        arrow.classList.remove('rotate-90');
+      }
     }
   </script>
 </head>
@@ -658,8 +698,8 @@ __END__
                           }.compact.first %>)
                         </span>
                       </td>
-                      <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                        <select class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:max-w-xs sm:text-sm sm:leading-6">
+                      <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500 text-right">
+                        <select class="block w-full rounded-md border-0 py-1.5 pl-3 pr-10 text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-indigo-600 sm:text-sm/6">
                           <option value="">None</option>
                           <% 
                             all_iterations = (@github_sprint_field&.dig('configuration', 'iterations') || []) +
@@ -720,30 +760,53 @@ __END__
                   </select>
                 </div>
               </div>
-              <div id="content-<%= pipeline.id %>" class="hidden border-t border-gray-200">
-                <div class="p-4 space-y-2">
-                  <% @pipeline_data[pipeline.id][:issues].each do |issue| %>
-                    <div class="flex items-center space-x-2">
-                      <a href="<%= issue.html_url %>" target="_blank" class="text-blue-600 hover:text-blue-800">
-                        #<%= issue.number %>
-                      </a>
-                      <span class="text-gray-700"><%= issue.title %></span>
-                      <% if issue.estimate&.value %>
-                        <span class="inline-flex items-center rounded-md bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600">
-                          <%= issue.estimate.value.round %> points
-                        </span>
+                <tr id="content-<%= pipeline.id %>" class="hidden">
+                  <td colspan="2" class="px-0 border-t border-gray-200">
+                    <div class="overflow-x-auto">
+                      <table class="min-w-full divide-y divide-gray-300">
+                    <thead class="bg-gray-50">
+                      <tr>
+                        <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">Issue</th>
+                        <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Title</th>
+                        <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Points</th>
+                        <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Sprint</th>
+                      </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200 bg-white">
+                      <% @pipeline_data[pipeline.id][:issues].each do |issue| %>
+                        <tr>
+                          <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm">
+                            <a href="<%= issue.html_url %>" target="_blank" class="text-blue-600 hover:text-blue-800">
+                              #<%= issue.number %>
+                            </a>
+                          </td>
+                          <td class="whitespace-normal px-3 py-4 text-sm text-gray-700">
+                            <%= issue.title %>
+                          </td>
+                          <td class="whitespace-nowrap px-3 py-4 text-sm">
+                            <% if issue.estimate&.value %>
+                              <span class="inline-flex items-center rounded-md bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600">
+                                <%= issue.estimate.value.round %> points
+                              </span>
+                            <% end %>
+                          </td>
+                          <td class="whitespace-nowrap px-3 py-4 text-sm">
+                            <% if issue.sprints.total_count > 0 %>
+                              <span class="inline-flex items-center rounded-md bg-blue-100 px-2 py-1 text-xs font-medium text-blue-700">
+                                <%= issue.sprints.nodes.first.name %>
+                              </span>
+                            <% end %>
+                          </td>
+                        </tr>
                       <% end %>
-                      <% if issue.sprints.total_count > 0 %>
-                        <span class="inline-flex items-center rounded-md bg-blue-100 px-2 py-1 text-xs font-medium text-blue-700">
-                          <%= issue.sprints.nodes.first.name %>
-                        </span>
-                      <% end %>
+                    </tbody>
+                      </table>
                     </div>
-                  <% end %>
-                </div>
-              </div>
-            </div>
-          <% end %>
+                  </td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
         </div>
     </div>
   <% else %>
