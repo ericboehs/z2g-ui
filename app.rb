@@ -24,6 +24,13 @@ require 'json'
 class App < Sinatra::Base
   set :server, :puma
   set :inline_templates, true
+  
+  # Class-level cache for API responses
+  @@zenhub_cache = {}
+  @@github_cache = {}
+  
+  # Cache expiration time (1 hour)
+  CACHE_EXPIRY = 3600
 
   if ENV['ZENHUB_TOKEN']
     # GraphQL client setup
@@ -123,119 +130,6 @@ class App < Sinatra::Base
   end
 
   helpers do
-    def setup_workspace_data(workspace_id, github_info)
-      # Query ZenHub
-      result = Client.query(PipelinesQuery, variables: { workspaceId: workspace_id })
-      @workspace = result.data.workspace if result.data
-
-      # Fetch issue counts for each pipeline and collect unique sprints
-      if @workspace
-        repository_ids = @workspace.repositories.map(&:id)
-        @pipeline_data = {}
-        @all_sprints = Set.new
-        @workspace.pipelines.each do |pipeline|
-          issues_result = fetch_pipeline_issues(workspace_id, pipeline.id, repository_ids)
-          issues = issues_result.data.search_issues_by_pipeline.nodes
-          issues.each do |issue|
-            if issue.sprints.total_count > 0
-              @all_sprints.add(issue.sprints.nodes.first.name)
-            end
-          end
-          @pipeline_data[pipeline.id] = {
-            count: issues_result.data.search_issues_by_pipeline.pipeline_counts.issues_count,
-            issues: issues
-          }
-        end
-      end
-
-      setup_github_data(github_info)
-    end
-
-    def setup_github_data(github_info)
-      fetch_github_project_id(github_info)
-      fetch_github_fields if @github_project_id
-    end
-
-    def fetch_github_project_id(github_info)
-      github_query = <<~GRAPHQL
-        query {
-          organization(login: "#{github_info[:organization]}") {
-            projectV2(number: #{github_info[:project_number]}) {
-              id
-            }
-          }
-        }
-      GRAPHQL
-
-      response = github_graphql_request(github_query)
-      if response.is_a?(Net::HTTPSuccess)
-        github_data = JSON.parse(response.body)
-        @github_project_id = github_data.dig('data', 'organization', 'projectV2', 'id')
-      end
-    end
-
-    def fetch_github_fields
-      status_query = <<~GRAPHQL
-        query {
-          node(id: "#{@github_project_id}") {
-            ... on ProjectV2 {
-              statusField: field(name: "Status") {
-                ... on ProjectV2SingleSelectField {
-                  id
-                  name
-                  options {
-                    id
-                    name
-                  }
-                }
-              }
-              sprintField: field(name: "Sprint") {
-                databaseId
-                id
-                name
-                configuration {
-                  iterations {
-                    id
-                    title
-                    duration
-                    startDate
-                    duration
-                  }
-                  completedIterations {
-                    id
-                    title
-                    duration
-                    startDate
-                    duration
-                  }
-                }
-              }
-            }
-          }
-        }
-      GRAPHQL
-
-      response = github_graphql_request(status_query)
-      if response.is_a?(Net::HTTPSuccess)
-        status_data = JSON.parse(response.body)
-        @github_status_options = status_data.dig('data', 'node', 'statusField', 'options')
-        @github_sprint_field = status_data.dig('data', 'node', 'sprintField')
-      end
-    end
-
-    def github_graphql_request(query)
-      uri = URI('https://api.github.com/graphql')
-      http = Net::HTTP.new(uri.host, uri.port)
-      http.use_ssl = true
-      
-      request = Net::HTTP::Post.new(uri)
-      request['Authorization'] = "Bearer #{ENV['GITHUB_TOKEN']}"
-      request['Content-Type'] = 'application/json'
-      request.body = { query: query }.to_json
-
-      http.request(request)
-    end
-
     def extract_github_project_info(url)
       return nil unless url
       
@@ -273,6 +167,28 @@ class App < Sinatra::Base
     end
 
     def query_zenhub_workspace(workspace_id)
+      cache_key = workspace_id
+      
+      # Check cache
+      if cached = @@zenhub_cache[cache_key]
+        if Time.now.to_i - cached[:timestamp] < CACHE_EXPIRY
+          @workspace = cached[:workspace]
+          @pipeline_data = cached[:pipeline_data]
+          @all_sprints = cached[:all_sprints]
+          return
+        else
+          @@zenhub_cache.delete(cache_key)
+        end
+        
+        # Cache the results
+        @@zenhub_cache[cache_key] = {
+          workspace: @workspace,
+          pipeline_data: @pipeline_data,
+          all_sprints: @all_sprints,
+          timestamp: Time.now.to_i
+        }
+      end
+      
       # Query ZenHub
       result = Client.query(PipelinesQuery, variables: { workspaceId: workspace_id })
       @workspace = result.data.workspace if result.data
@@ -295,10 +211,32 @@ class App < Sinatra::Base
             issues: issues
           }
         end
+        
+        # Cache the results
+        @@zenhub_cache[cache_key] = {
+          workspace: @workspace,
+          pipeline_data: @pipeline_data,
+          all_sprints: @all_sprints,
+          timestamp: Time.now.to_i
+        }
       end
     end
 
     def query_github_project(github_info)
+      cache_key = "#{github_info[:organization]}/#{github_info[:project_number]}"
+      
+      # Check cache
+      if cached = @@github_cache[cache_key]
+        if Time.now.to_i - cached[:timestamp] < CACHE_EXPIRY
+          @github_project_id = cached[:project_id]
+          @github_status_options = cached[:status_options]
+          @github_sprint_field = cached[:sprint_field]
+          return
+        else
+          @@github_cache.delete(cache_key)
+        end
+      end
+      
       # Query GitHub GraphQL API
       github_query = <<~GRAPHQL
         query {
@@ -393,17 +331,17 @@ class App < Sinatra::Base
     if workspace_id.nil? || github_info.nil?
       erb :setup
     else
-      setup_workspace_data(workspace_id, github_info)
-      if @workspace.nil?
-        status 400
-        return "Could not fetch workspace data. Please ensure your ZenHub token is valid and you have access to this workspace."
-      end
-
       query_zenhub_workspace(workspace_id)
       query_github_project(github_info)
 
       erb :sprints
     end
+  end
+
+  get '/clear-cache' do
+    @@zenhub_cache.clear
+    @@github_cache.clear
+    redirect back
   end
 
   get '/pipelines' do
@@ -443,6 +381,12 @@ __END__
           </a>
           <a href="/pipelines?<%= request.query_string %>" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
             Pipelines
+          </a>
+          <a href="/clear-cache" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+            <svg class="w-4 h-4 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            Refresh
           </a>
         </div>
       </div>
@@ -556,6 +500,12 @@ __END__
           </a>
           <a href="/pipelines?<%= request.query_string %>" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700">
             Pipelines
+          </a>
+          <a href="/clear-cache" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+            <svg class="w-4 h-4 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            Refresh
           </a>
         </div>
       </div>
