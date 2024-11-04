@@ -698,7 +698,15 @@ __END__
   <title>ZenHub Pipeline Viewer</title>
   <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
   <script>
-    let selectedIssues = {};
+    let selectedIssues = {
+      metadata: {
+        zenhubWorkspaceId: "<%= @workspace.id %>",
+        githubProject: {
+          organization: "<%= extract_github_project_info(params[:github_url])[:organization] %>",
+          projectNumber: "<%= extract_github_project_info(params[:github_url])[:project_number] %>"
+        }
+      }
+    };
 
     function handleSprintCheckbox(checkbox) {
       const sprintName = checkbox.dataset.sprintName;
@@ -709,21 +717,20 @@ __END__
       
       issues.forEach(issueCheckbox => {
         issueCheckbox.checked = checkbox.checked;
-        const issueNumber = issueCheckbox.dataset.issueNumber;
         const issueRow = issueCheckbox.closest('tr');
         const issueLink = issueRow.querySelector('a[href]');
+        const issueUrl = issueLink.href;
         
         if (checkbox.checked && githubSprintOption.value !== "") {
-          selectedIssues[issueNumber] = {
-            fromSprint: sprintName,
-            toSprint: {
+          selectedIssues[issueUrl] = {
+            fromZenHubSprint: sprintName,
+            toGitHubSprint: {
               id: githubSprintOption.value,
               name: githubSprintOption.text
-            },
-            url: issueLink.href
+            }
           };
         } else {
-          delete selectedIssues[issueNumber];
+          delete selectedIssues[issueUrl];
         }
       });
       
@@ -763,10 +770,10 @@ __END__
     }
 
     function handleIssueCheckbox(checkbox) {
-      const issueNumber = checkbox.dataset.issueNumber;
       const sprintName = checkbox.dataset.sprintName;
       const issueRow = checkbox.closest('tr');
       const issueLink = issueRow.querySelector('a[href]');
+      const issueUrl = issueLink.href;
       
       // Find the sprint's select element by traversing up to the sprint row
       let currentRow = issueRow;
@@ -781,26 +788,24 @@ __END__
       if (checkbox.checked) {
         if (sprintSelect) {
           const selectedOption = sprintSelect.options[sprintSelect.selectedIndex];
-          selectedIssues[issueNumber] = {
+          selectedIssues[issueUrl] = {
             fromSprint: sprintName,
             toSprint: {
               id: selectedOption.value || null,
               name: selectedOption.text || "None"
-            },
-            url: issueLink.href
+            }
           };
         } else {
-          selectedIssues[issueNumber] = {
+          selectedIssues[issueUrl] = {
             fromSprint: sprintName,
             toSprint: {
               id: null,
               name: "None"
-            },
-            url: issueLink.href
+            }
           };
         }
       } else {
-        delete selectedIssues[issueNumber];
+        delete selectedIssues[issueUrl];
       }
       
       // Update the sprint checkbox based on all issue checkboxes
@@ -824,7 +829,7 @@ __END__
 
     function updateJsonDisplay() {
       const jsonDisplay = document.getElementById('selected-issues-json');
-      if (Object.keys(selectedIssues).length > 0) {
+      if (Object.keys(selectedIssues).length > 1) { // Exclude metadata from count
         const prettyJson = JSON.stringify(selectedIssues, null, 2);
         jsonDisplay.innerHTML = `<pre class="text-xs font-mono">${prettyJson}</pre>`;
         jsonDisplay.classList.remove('hidden');
