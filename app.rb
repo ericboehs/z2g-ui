@@ -778,14 +778,23 @@ __END__
         }
       }
       
-      if (checkbox.checked && sprintSelect) {
-        const selectedOption = sprintSelect.options[sprintSelect.selectedIndex];
-        if (selectedOption.value !== "") {
+      if (checkbox.checked) {
+        if (sprintSelect) {
+          const selectedOption = sprintSelect.options[sprintSelect.selectedIndex];
           selectedIssues[issueNumber] = {
             fromSprint: sprintName,
             toSprint: {
-              id: selectedOption.value,
-              name: selectedOption.text
+              id: selectedOption.value || null,
+              name: selectedOption.text || "None"
+            },
+            url: issueLink.href
+          };
+        } else {
+          selectedIssues[issueNumber] = {
+            fromSprint: sprintName,
+            toSprint: {
+              id: null,
+              name: "None"
             },
             url: issueLink.href
           };
