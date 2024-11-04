@@ -422,6 +422,11 @@ __END__
         <div class="mb-6">
           <div class="flex justify-between items-center mb-2">
             <h3 class="text-lg font-medium text-gray-900">Sprint Mapping</h3>
+            <div id="selected-issues-json" class="fixed bottom-0 left-0 right-0 bg-gray-100 border-t border-gray-200 p-4 shadow-lg max-h-[30vh] overflow-y-auto hidden">
+              <div class="max-w-4xl mx-auto">
+                <h4 class="text-sm font-medium text-gray-900 mb-2">Selected Issues</h4>
+              </div>
+            </div>
             <a href="<%= params[:github_url] %>/settings/fields/<%= @github_sprint_field.dig('databaseId') %>" 
                target="_blank" 
                class="text-sm text-gray-600 hover:text-gray-900 flex items-center gap-1">
@@ -452,10 +457,15 @@ __END__
                       }
                       next if sprint_issues.empty? # Skip sprints with no issues
                   %>
-                  <tr class="hover:bg-gray-50 cursor-pointer" onclick="toggleAccordion('<%= sprint.name %>')">
+                  <tr class="hover:bg-gray-50">
                     <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm">
                       <div class="flex items-center">
-                        <svg id="arrow-<%= sprint.name %>" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 transition-transform duration-200 mr-2">
+                        <input type="checkbox" 
+                               class="sprint-checkbox mr-2"
+                               data-sprint-name="<%= sprint.name %>"
+                               onclick="handleSprintCheckbox(this)">
+                        <div class="cursor-pointer flex items-center" onclick="toggleAccordion('<%= sprint.name %>')">
+                          <svg id="arrow-<%= sprint.name %>" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 transition-transform duration-200 mr-2">
                           <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
                         </svg>
                         <span class="font-medium text-gray-900"><%= sprint.name %></span>
@@ -508,8 +518,13 @@ __END__
                           </thead>
                           <tbody class="divide-y divide-gray-200 bg-white">
                             <% sprint_issues.each do |issue| %>
-                              <tr>
+                              <tr class="issue-row" data-sprint-name="<%= sprint.name %>">
                                 <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm">
+                                  <input type="checkbox" 
+                                         class="issue-checkbox mr-2"
+                                         data-issue-number="<%= issue.number %>"
+                                         data-sprint-name="<%= sprint.name %>"
+                                         onclick="handleIssueCheckbox(this)">
                                   <a href="<%= issue.html_url %>" target="_blank" class="text-blue-600 hover:text-blue-800">
                                     #<%= issue.number %>
                                   </a>
@@ -611,7 +626,9 @@ __END__
                   </div>
                 </td>
                 <td class="whitespace-nowrap px-3 py-4 text-sm">
-                  <select class="block w-full rounded-md border-0 py-1.5 pl-3 pr-10 text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-indigo-600 sm:text-sm/6" onclick="event.stopPropagation()">
+                  <select class="block w-full rounded-md border-0 py-1.5 pl-3 pr-10 text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-indigo-600 sm:text-sm/6" 
+                          onclick="event.stopPropagation()"
+                          onchange="handleSprintSelect(this)">
                     <% @github_status_options&.each do |option| %>
                       <option value="<%= option['id'] %>"><%= option['name'] %></option>
                     <% end %>
@@ -632,8 +649,13 @@ __END__
                       </thead>
                       <tbody class="divide-y divide-gray-200 bg-white">
                         <% @pipeline_data[pipeline.id][:issues].each do |issue| %>
-                          <tr>
+                          <tr class="issue-row" data-sprint-name="<%= sprint.name %>">
                             <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm">
+                              <input type="checkbox" 
+                                     class="issue-checkbox mr-2"
+                                     data-issue-number="<%= issue.number %>"
+                                     data-sprint-name="<%= sprint.name %>"
+                                     onclick="event.stopPropagation(); handleIssueCheckbox(this)">
                               <a href="<%= issue.html_url %>" target="_blank" class="text-blue-600 hover:text-blue-800">
                                 #<%= issue.number %>
                               </a>
@@ -676,6 +698,116 @@ __END__
   <title>ZenHub Pipeline Viewer</title>
   <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
   <script>
+    let selectedIssues = {};
+
+    function handleSprintCheckbox(checkbox) {
+      const sprintName = checkbox.dataset.sprintName;
+      const issues = document.querySelectorAll(`.issue-row[data-sprint-name="${sprintName}"] .issue-checkbox`);
+      const sprintRow = checkbox.closest('tr');
+      const githubSprintSelect = sprintRow.querySelector('select');
+      const githubSprintOption = githubSprintSelect.options[githubSprintSelect.selectedIndex];
+      
+      issues.forEach(issueCheckbox => {
+        issueCheckbox.checked = checkbox.checked;
+        const issueNumber = issueCheckbox.dataset.issueNumber;
+        const issueRow = issueCheckbox.closest('tr');
+        const issueLink = issueRow.querySelector('a[href]');
+        
+        if (checkbox.checked && githubSprintOption.value !== "") {
+          selectedIssues[issueNumber] = {
+            fromSprint: sprintName,
+            toSprint: {
+              id: githubSprintOption.value,
+              name: githubSprintOption.text
+            },
+            url: issueLink.href
+          };
+        } else {
+          delete selectedIssues[issueNumber];
+        }
+      });
+      
+      updateJsonDisplay();
+    }
+
+    function handleSprintSelect(select) {
+      const sprintRow = select.closest('tr');
+      const sprintName = sprintRow.querySelector('.sprint-checkbox')?.dataset.sprintName;
+      const selectedOption = select.options[select.selectedIndex];
+      
+      // Find all checked issue checkboxes for this sprint
+      const checkedIssues = document.querySelectorAll(
+        `.issue-row[data-sprint-name="${sprintName}"] .issue-checkbox:checked`
+      );
+      
+      checkedIssues.forEach(checkbox => {
+        const issueNumber = checkbox.dataset.issueNumber;
+        const issueRow = checkbox.closest('tr');
+        const issueLink = issueRow.querySelector('a[href]');
+        
+        if (selectedOption.value !== "") {
+          selectedIssues[issueNumber] = {
+            fromSprint: sprintName,
+            toSprint: {
+              id: selectedOption.value,
+              name: selectedOption.text
+            },
+            url: issueLink.href
+          };
+        } else {
+          delete selectedIssues[issueNumber];
+        }
+      });
+      
+      updateJsonDisplay();
+    }
+
+    function handleIssueCheckbox(checkbox) {
+      const issueNumber = checkbox.dataset.issueNumber;
+      const sprintName = checkbox.dataset.sprintName;
+      const issueRow = checkbox.closest('tr');
+      const issueLink = issueRow.querySelector('a[href]');
+      
+      // Find the sprint's select element by traversing up to the sprint row
+      let currentRow = issueRow;
+      let sprintSelect = null;
+      while (currentRow && !sprintSelect) {
+        currentRow = currentRow.previousElementSibling;
+        if (currentRow && !currentRow.classList.contains('issue-row')) {
+          sprintSelect = currentRow.querySelector('select');
+        }
+      }
+      
+      if (checkbox.checked && sprintSelect) {
+        const selectedOption = sprintSelect.options[sprintSelect.selectedIndex];
+        if (selectedOption.value !== "") {
+          selectedIssues[issueNumber] = {
+            fromSprint: sprintName,
+            toSprint: {
+              id: selectedOption.value,
+              name: selectedOption.text
+            },
+            url: issueLink.href
+          };
+        }
+      } else {
+        delete selectedIssues[issueNumber];
+      }
+      
+      updateJsonDisplay();
+    }
+
+    function updateJsonDisplay() {
+      const jsonDisplay = document.getElementById('selected-issues-json');
+      if (Object.keys(selectedIssues).length > 0) {
+        const prettyJson = JSON.stringify(selectedIssues, null, 2);
+        jsonDisplay.innerHTML = `<pre class="text-xs font-mono">${prettyJson}</pre>`;
+        jsonDisplay.classList.remove('hidden');
+      } else {
+        jsonDisplay.innerHTML = '';
+        jsonDisplay.classList.add('hidden');
+      }
+    }
     function toggleAccordion(id) {
       const content = document.getElementById(`content-${id}`);
       const arrow = document.getElementById(`arrow-${id}`);
@@ -692,6 +824,7 @@ __END__
 </head>
 <body class="bg-gray-100">
   <%= yield %>
+  <div class="pb-[35vh]"></div>
 </body>
 </html>
 
@@ -718,6 +851,7 @@ __END__
           <div class="mb-6">
             <div class="flex justify-between items-center mb-2">
               <h3 class="text-lg font-medium text-gray-900">Sprint Mapping</h3>
+              <div id="selected-issues-json" class="text-xs text-gray-500 mt-2 whitespace-pre-wrap hidden"></div>
               <a href="<%= params[:github_url] %>/settings/fields/<%= @github_sprint_field.dig('databaseId') %>" 
                  target="_blank" 
                  class="text-sm text-gray-600 hover:text-gray-900 flex items-center gap-1">
