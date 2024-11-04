@@ -1,5 +1,4 @@
 require 'bundler/inline'
-require 'set'
 
 gemfile do
   source 'https://rubygems.org'
@@ -77,6 +76,23 @@ class App < Sinatra::Base
             id
             name
             color
+          }
+        }
+      }
+    GRAPHQL
+
+    WorkspaceSprintsQuery = Client.parse <<~'GRAPHQL'
+      query($workspaceId: ID!) {
+        workspace(id: $workspaceId) {
+          id
+          sprints {
+            nodes {
+              id
+              name
+              startAt
+              endAt
+              state
+            }
           }
         }
       }
@@ -174,52 +190,46 @@ class App < Sinatra::Base
         if Time.now.to_i - cached[:timestamp] < CACHE_EXPIRY
           @workspace = cached[:workspace]
           @pipeline_data = cached[:pipeline_data]
-          @all_sprints = cached[:all_sprints]
+          @sprints = cached[:sprints]
           return
         else
           @@zenhub_cache.delete(cache_key)
         end
-        
-        # Cache the results
-        @@zenhub_cache[cache_key] = {
-          workspace: @workspace,
-          pipeline_data: @pipeline_data,
-          all_sprints: @all_sprints,
-          timestamp: Time.now.to_i
-        }
       end
       
       # Query ZenHub
       result = Client.query(PipelinesQuery, variables: { workspaceId: workspace_id })
       @workspace = result.data.workspace if result.data
 
-      # Fetch issue counts for each pipeline and collect unique sprints
+      # Fetch issue counts for each pipeline
       if @workspace
         repository_ids = @workspace.repositories.map(&:id)
         @pipeline_data = {}
-        @all_sprints = Set.new
         @workspace.pipelines.each do |pipeline|
           issues_result = fetch_pipeline_issues(workspace_id, pipeline.id, repository_ids)
           issues = issues_result.data.search_issues_by_pipeline.nodes
-          issues.each do |issue|
-            if issue.sprints.total_count > 0
-              @all_sprints.add(issue.sprints.nodes.first.name)
-            end
-          end
           @pipeline_data[pipeline.id] = {
             count: issues_result.data.search_issues_by_pipeline.pipeline_counts.issues_count,
             issues: issues
           }
         end
+
+        # Get sprints directly from workspace
+        @sprints = query_workspace_sprints(workspace_id)
         
         # Cache the results
         @@zenhub_cache[cache_key] = {
           workspace: @workspace,
           pipeline_data: @pipeline_data,
-          all_sprints: @all_sprints,
+          sprints: @sprints,
           timestamp: Time.now.to_i
         }
       end
+    end
+
+    def query_workspace_sprints(workspace_id)
+      result = Client.query(WorkspaceSprintsQuery, variables: { workspaceId: workspace_id })
+      result.data.workspace.sprints.nodes if result.data&.workspace
     end
 
     def query_github_project(github_info)
@@ -408,7 +418,7 @@ __END__
           </a>
         </div>
       </div>
-      <% if @all_sprints.any? %>
+      <% if @sprints.any? %>
         <div class="mb-6">
           <div class="flex justify-between items-center mb-2">
             <h3 class="text-lg font-medium text-gray-900">Sprint Mapping</h3>
@@ -430,21 +440,30 @@ __END__
                 </tr>
               </thead>
               <tbody class="divide-y divide-gray-200 bg-white">
-                <% 
-                  sprint_dates = @pipeline_data.values.flat_map { |data| 
-                    data[:issues].flat_map { |issue| 
-                      issue.sprints.nodes.map { |sprint| [sprint.name, Date.parse(sprint.start_at)] if sprint.start_at }
-                    }
-                  }.compact.uniq
-                  sorted_sprints = sprint_dates.sort_by { |_, date| date }.map(&:first)
-                  sorted_sprints.each do |sprint| 
-                %>
-                  <tr>
-                    <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900">
-                      <%= sprint %>
+                  <%
+                    sorted_sprints = @sprints.sort_by { |sprint| -Date.parse(sprint.start_at).to_time.to_i }
+                    sorted_sprints.each do |sprint|
+                      # Find all issues where this is their latest sprint
+                      sprint_issues = @pipeline_data.values.flat_map { |data| 
+                        data[:issues].select { |issue| 
+                          latest_sprint = issue.sprints.nodes.max_by { |s| Date.parse(s.start_at) }
+                          latest_sprint&.id == sprint.id
+                        }
+                      }
+                      next if sprint_issues.empty? # Skip sprints with no issues
+                  %>
+                  <tr class="hover:bg-gray-50 cursor-pointer" onclick="toggleAccordion('<%= sprint.name %>')">
+                    <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm">
+                      <div class="flex items-center">
+                        <svg id="arrow-<%= sprint.name %>" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 transition-transform duration-200 mr-2">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+                        </svg>
+                        <span class="font-medium text-gray-900"><%= sprint.name %></span>
+                        <span class="text-gray-500 ml-2">(<%= sprint_issues.length %> issues)</span>
+                      </div>
                     </td>
-                    <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                      <select class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:max-w-xs sm:text-sm sm:leading-6">
+                    <td class="whitespace-nowrap px-3 py-4 text-sm">
+                      <select class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:max-w-xs sm:text-sm sm:leading-6" onclick="event.stopPropagation()">
                         <option value="">None</option>
                         <% 
                           all_iterations = (@github_sprint_field&.dig('configuration', 'iterations') || []) +
@@ -458,7 +477,7 @@ __END__
                                 issue.sprints.nodes
                               }
                             }.find { |zh_sprint| 
-                              zh_sprint.name == sprint && 
+                              zh_sprint.name == sprint.name && 
                               zh_sprint.start_at && 
                               (Date.parse(zh_sprint.start_at) - Date.parse(iteration['startDate'])).abs <= 1
                             }
@@ -473,6 +492,47 @@ __END__
                           </option>
                         <% end %>
                       </select>
+                    </td>
+                  </tr>
+                  <tr id="content-<%= sprint.name %>" class="hidden">
+                    <td colspan="2" class="px-0 border-t border-gray-200">
+                      <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-300">
+                          <thead class="bg-gray-50">
+                            <tr>
+                              <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">Issue</th>
+                              <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Pipeline</th>
+                              <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Title</th>
+                              <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Points</th>
+                            </tr>
+                          </thead>
+                          <tbody class="divide-y divide-gray-200 bg-white">
+                            <% sprint_issues.each do |issue| %>
+                              <tr>
+                                <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm">
+                                  <a href="<%= issue.html_url %>" target="_blank" class="text-blue-600 hover:text-blue-800">
+                                    #<%= issue.number %>
+                                  </a>
+                                </td>
+                                <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                                  <% pipeline = @workspace.pipelines.find { |p| @pipeline_data[p.id][:issues].include?(issue) } %>
+                                  <%= pipeline&.name %>
+                                </td>
+                                <td class="whitespace-normal px-3 py-4 text-sm text-gray-700">
+                                  <%= issue.title %>
+                                </td>
+                                <td class="whitespace-nowrap px-3 py-4 text-sm">
+                                  <% if issue.estimate&.value %>
+                                    <span class="inline-flex items-center rounded-md bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600">
+                                      <%= issue.estimate.value.round %> points
+                                    </span>
+                                  <% end %>
+                                </td>
+                              </tr>
+                            <% end %>
+                          </tbody>
+                        </table>
+                      </div>
                     </td>
                   </tr>
                 <% end %>
@@ -654,7 +714,7 @@ __END__
             GitHub Project
           </a>
         </div>
-        <% if @all_sprints.any? %>
+        <% if @sprints.any? %>
           <div class="mb-6">
             <div class="flex justify-between items-center mb-2">
               <h3 class="text-lg font-medium text-gray-900">Sprint Mapping</h3>
@@ -677,25 +737,15 @@ __END__
                 </thead>
                 <tbody class="divide-y divide-gray-200 bg-white">
                   <% 
-                    # Get all ZenHub sprints with their start dates
-                    sprint_dates = @pipeline_data.values.flat_map { |data| 
-                      data[:issues].flat_map { |issue| 
-                        issue.sprints.nodes.map { |sprint| [sprint.name, Date.parse(sprint.start_at)] if sprint.start_at }
-                      }
-                    }.compact.uniq
                     # Sort sprints by start date
-                    sorted_sprints = sprint_dates.sort_by { |_, date| date }.map(&:first)
+                    sorted_sprints = @sprints.sort_by { |sprint| -Date.parse(sprint.start_at).to_time.to_i }
                     sorted_sprints.each do |sprint| 
                   %>
                     <tr>
                       <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900">
-                        <%= sprint %>
+                        <%= sprint.name %>
                         <span class="text-xs text-gray-500 ml-2">
-                          (<%= @pipeline_data.values.flat_map { |data| 
-                            data[:issues].flat_map { |issue| 
-                              issue.sprints.nodes.find { |s| s.name == sprint }&.id 
-                            }
-                          }.compact.first %>)
+                          (<%= sprint.id %>)
                         </span>
                       </td>
                       <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500 text-right">
@@ -710,15 +760,8 @@ __END__
                           %>
                             <% 
                               # Find matching sprint in pipeline data
-                              matching_sprint = @pipeline_data.values.flat_map { |data| 
-                                data[:issues].flat_map { |issue| 
-                                  issue.sprints.nodes
-                                }
-                              }.find { |zh_sprint| 
-                                zh_sprint.name == sprint && 
-                                zh_sprint.start_at && 
-                                (Date.parse(zh_sprint.start_at) - Date.parse(iteration['startDate'])).abs <= 1
-                              }
+                              matching_sprint = sprint.start_at && 
+                                (Date.parse(sprint.start_at) - Date.parse(iteration['startDate'])).abs <= 1
                             %>
                             <%
                               start_date = Date.parse(iteration['startDate'])
