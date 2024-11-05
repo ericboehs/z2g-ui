@@ -335,10 +335,20 @@ class App < Sinatra::Base
           @github_sprint_field = status_data.dig('data', 'node', 'sprintField')
           @github_status_field = status_data.dig('data', 'node', 'statusField')
 
+          # Cache the results
           github_project = Github::Project.new(
             token: ENV.fetch('GITHUB_TOKEN'), organization: github_info[:organization], number: github_info[:project_number]
           )
           @github_issues = github_project.issues
+          
+          @@github_cache[cache_key] = {
+            project_id: @github_project_id,
+            status_options: @github_status_options,
+            status_field: @github_status_field,
+            sprint_field: @github_sprint_field,
+            issues: @github_issues,
+            timestamp: Time.now.to_i
+          }
         end
       end
     end
