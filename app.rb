@@ -466,6 +466,9 @@ __END__
                                  data-sprint-name="<%= sprint.name %>"
                                  onclick="handleSprintCheckbox(this)">
                           <div class="cursor-pointer flex items-center" onclick="toggleAccordion('<%= sprint.name %>')">
+                            <svg id="arrow-<%= sprint.name %>" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 transition-transform duration-200 mr-2">
+                              <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+                            </svg>
                             <span class="font-medium text-gray-900"><%= sprint.name %></span>
                             <span class="text-gray-500 ml-2">(<%= sprint_issues.length %> issues)</span>
                           </div>
