@@ -335,7 +335,34 @@ class App < Sinatra::Base
   end
 
   get '/' do
-    redirect '/sprints'
+    steps = [
+      { name: "Setup", number: "01", current: true, completed: false, url: "/" },
+      { name: "Pipelines", number: "02", current: false, completed: false, url: "/pipelines?#{request.query_string}" },
+      { name: "Sprints", number: "03", current: false, completed: false, url: "/sprints?#{request.query_string}" },
+      { name: "Migrate", number: "04", current: false, completed: false, url: "/migrate?#{request.query_string}" }
+    ]
+    erb :setup, locals: { steps: steps }
+  end
+
+  get '/pipelines' do
+    workspace_id = extract_workspace_id(params[:workspace_url])
+    github_info = extract_github_project_info(params[:github_url])
+    
+    if workspace_id.nil? || github_info.nil?
+      status 400
+      return "Please provide valid ZenHub workspace and GitHub project URLs."
+    end
+
+    query_zenhub_workspace(workspace_id)
+    query_github_project(github_info)
+
+    steps = [
+      { name: "Setup", number: "01", current: false, completed: true, url: "/" },
+      { name: "Pipelines", number: "02", current: true, completed: false, url: "/pipelines?#{request.query_string}" },
+      { name: "Sprints", number: "03", current: false, completed: false, url: "/sprints?#{request.query_string}" },
+      { name: "Migrate", number: "04", current: false, completed: false, url: "/migrate?#{request.query_string}" }
+    ]
+    erb :pipelines, locals: { steps: steps }
   end
 
   get '/sprints' do
@@ -343,39 +370,37 @@ class App < Sinatra::Base
     github_info = extract_github_project_info(params[:github_url])
     
     if workspace_id.nil? || github_info.nil?
-      erb :setup
-    else
-      query_zenhub_workspace(workspace_id)
-      query_github_project(github_info)
-
-      erb :sprints
+      status 400
+      return "Please provide valid ZenHub workspace and GitHub project URLs."
     end
+
+    query_zenhub_workspace(workspace_id)
+    query_github_project(github_info)
+
+    steps = [
+      { name: "Setup", number: "01", current: false, completed: true, url: "/" },
+      { name: "Pipelines", number: "02", current: false, completed: true, url: "/pipelines?#{request.query_string}" },
+      { name: "Sprints", number: "03", current: true, completed: false, url: "/sprints?#{request.query_string}" },
+      { name: "Migrate", number: "04", current: false, completed: false, url: "/migrate?#{request.query_string}" }
+    ]
+    erb :sprints, locals: { steps: steps }
+  end
+
+  get '/migrate' do
+    # Implement migration logic here
+    steps = [
+      { name: "Setup", number: "01", current: false, completed: true, url: "/" },
+      { name: "Pipelines", number: "02", current: false, completed: true, url: "/pipelines?#{request.query_string}" },
+      { name: "Sprints", number: "03", current: false, completed: true, url: "/sprints?#{request.query_string}" },
+      { name: "Migrate", number: "04", current: true, completed: false, url: "/migrate?#{request.query_string}" }
+    ]
+    erb :migrate, locals: { steps: steps }
   end
 
   get '/clear-cache' do
     @@zenhub_cache.clear
     @@github_cache.clear
     redirect back
-  end
-
-  get '/pipelines' do
-    workspace_id = extract_workspace_id(params[:workspace_url])
-    github_info = extract_github_project_info(params[:github_url])
-    
-    if workspace_id.nil?
-      status 400
-      return "Could not extract workspace ID from URL. Please ensure you're using a valid ZenHub workspace URL."
-    end
-
-    if github_info.nil?
-      status 400
-      return "Could not extract GitHub project info. Please ensure you're using a valid GitHub project URL."
-    end
-
-    query_zenhub_workspace(workspace_id)
-    query_github_project(github_info)
-
-    erb :pipelines
   end
 end
 
@@ -384,18 +409,13 @@ App.run! if __FILE__ == $0
 __END__
 
 @@sprints
+<%= erb :_progress_nav, locals: { steps: steps } %>
 <div class="min-h-full flex flex-col justify-center py-12 sm:px-6 lg:px-8">
   <% if @workspace %>
     <div class="sm:mx-auto sm:w-full sm:max-w-4xl">
       <div class="flex justify-between items-center mb-6">
         <h2 class="text-2xl font-bold"><%= @workspace.display_name %></h2>
         <div class="flex gap-4">
-          <a href="/sprints?<%= request.query_string %>" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700">
-            Sprints
-          </a>
-          <a href="/pipelines?<%= request.query_string %>" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
-            Pipelines
-          </a>
           <a href="/clear-cache" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
             <svg class="w-4 h-4 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -570,6 +590,7 @@ __END__
 </div>
 
 @@pipelines
+<%= erb :_progress_nav, locals: { steps: steps } %>
 <div class="min-h-full flex flex-col justify-center py-12 sm:px-6 lg:px-8">
   <% if @workspace %>
     <div class="sm:mx-auto sm:w-full sm:max-w-4xl">
@@ -912,6 +933,7 @@ __END__
 </html>
 
 @@setup
+<%= erb :_progress_nav, locals: { steps: steps } %>
 <div class="min-h-full flex flex-col justify-center py-12 sm:px-6 lg:px-8">
   <div class="sm:mx-auto sm:w-full sm:max-w-md">
     <h2 class="mt-6 text-center text-3xl font-bold tracking-tight text-gray-900">Connect Your Project</h2>
