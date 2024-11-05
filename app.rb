@@ -216,7 +216,7 @@ class App < Sinatra::Base
 
         # Get sprints directly from workspace
         @sprints = query_workspace_sprints(workspace_id)
-        
+
         # Cache the results
         @@zenhub_cache[cache_key] = {
           workspace: @workspace,
@@ -599,7 +599,7 @@ __END__
             GitHub Project
           </a>
         </div>
-<a href="<%= params[:github_url] %>/settings/fields/<%= @github_status_field&.dig('name') %>" 
+        <a href="<%= params[:github_url] %>/settings/fields/<%= @github_status_field&.dig('name') %>" 
            target="_blank" 
            class="text-sm text-gray-600 hover:text-gray-900 flex items-center gap-1">
           <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
@@ -644,7 +644,7 @@ __END__
                     <table class="min-w-full divide-y divide-gray-300">
                       <thead class="bg-gray-50">
                         <tr>
-                          <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">Issue</th>
+                          <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 pl-8">Issue</th>
                           <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Title</th>
                           <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Points</th>
                           <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Sprint</th>
@@ -652,12 +652,11 @@ __END__
                       </thead>
                       <tbody class="divide-y divide-gray-200 bg-white">
                         <% @pipeline_data[pipeline.id][:issues].each do |issue| %>
-                          <tr class="issue-row" data-sprint-name="<%= sprint.name %>">
-                            <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm">
+                          <tr class="issue-row">
+                            <td class="whitespace-nowrap py-4 pl-8 pr-3 text-sm">
                               <input type="checkbox" 
                                      class="issue-checkbox mr-2"
                                      data-issue-number="<%= issue.number %>"
-                                     data-sprint-name="<%= sprint.name %>"
                                      onclick="event.stopPropagation(); handleIssueCheckbox(this)">
                               <a href="<%= issue.html_url %>" target="_blank" class="text-blue-600 hover:text-blue-800">
                                 #<%= issue.number %>
