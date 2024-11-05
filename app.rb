@@ -709,10 +709,10 @@ __END__
   <script>
     let selectedIssues = {
       metadata: {
-        zenhubWorkspaceId: "<%= @workspace.id %>",
+        zenhubWorkspaceId: "<%= @workspace&.id %>",
         githubProject: {
-          organization: "<%= extract_github_project_info(params[:github_url])[:organization] %>",
-          projectNumber: "<%= extract_github_project_info(params[:github_url])[:project_number] %>"
+          organization: "<%= params[:github_url] ? extract_github_project_info(params[:github_url])[:organization] : '' %>",
+          projectNumber: "<%= params[:github_url] ? extract_github_project_info(params[:github_url])[:project_number] : '' %>"
         }
       }
     };
