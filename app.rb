@@ -1,7 +1,11 @@
+require 'logger'
+$logger ||= Logger.new $stdout
+
 require 'bundler/inline'
 
 gemfile do
   source 'https://rubygems.org'
+  gem 'octokit'
   gem 'sinatra'
   gem 'graphql-client'
   gem 'puma'
@@ -21,6 +25,7 @@ require 'graphql/client/http'
 require 'uri'
 require 'net/http'
 require 'json'
+require_relative 'github_project'
 
 class App < Sinatra::Base
   set :server, :puma
@@ -243,6 +248,7 @@ class App < Sinatra::Base
           @github_status_options = cached[:status_options]
           @github_status_field = cached[:status_field]
           @github_sprint_field = cached[:sprint_field]
+          @github_issues = cached[:issues]
           return
         else
           @@github_cache.delete(cache_key)
@@ -328,6 +334,11 @@ class App < Sinatra::Base
           @github_status_options = status_data.dig('data', 'node', 'statusField', 'options')
           @github_sprint_field = status_data.dig('data', 'node', 'sprintField')
           @github_status_field = status_data.dig('data', 'node', 'statusField')
+
+          github_project = Github::Project.new(
+            token: ENV.fetch('GITHUB_TOKEN'), organization: github_info[:organization], number: github_info[:project_number]
+          )
+          @github_issues = github_project.issues
         end
       end
     end

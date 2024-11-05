@@ -84,10 +84,9 @@
                     <table class="min-w-full divide-y divide-gray-300">
                       <thead class="bg-gray-50">
                         <tr>
-                          <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 pl-8">Issue</th>
+                          <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 pl-8">Number</th>
                           <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Title</th>
-                          <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Points</th>
-                          <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Sprint</th>
+                          <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">GitHub Status</th>
                         </tr>
                       </thead>
                       <tbody class="divide-y divide-gray-200 bg-white">
@@ -102,18 +101,11 @@
                               <%= issue.title %>
                             </td>
                             <td class="whitespace-nowrap px-3 py-4 text-sm">
-                              <% if issue.estimate&.value %>
-                                <span class="inline-flex items-center rounded-md bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600">
-                                  <%= issue.estimate.value.round %> points
-                                </span>
-                              <% end %>
-                            </td>
-                            <td class="whitespace-nowrap px-3 py-4 text-sm">
-                              <% if issue.sprints.total_count > 0 %>
-                                <span class="inline-flex items-center rounded-md bg-blue-100 px-2 py-1 text-xs font-medium text-blue-700">
-                                  <%= issue.sprints.nodes.first.name %>
-                                </span>
-                              <% end %>
+                              <%=
+                                @github_issues.find do |gh_issue|
+                                  gh_issue[:content][:url] == issue.html_url
+                                end&.dig(:fieldValues, :nodes)&.find { |node| node.dig(:field, :name) == "Status" }&.dig(:name)
+                              %>
                             </td>
                           </tr>
                         <% end %>
