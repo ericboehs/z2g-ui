@@ -561,6 +561,7 @@ __END__
       <% end %>
     </div>
   <% end %>
+  <div class="pb-[35vh]"></div>
 </div>
 
 @@pipelines
@@ -856,7 +857,6 @@ __END__
 </head>
 <body class="bg-gray-100">
   <%= yield %>
-  <div class="pb-[35vh]"></div>
 </body>
 </html>
 
