@@ -658,10 +658,6 @@ __END__
                         <% @pipeline_data[pipeline.id][:issues].each do |issue| %>
                           <tr class="issue-row">
                             <td class="whitespace-nowrap py-4 pl-8 pr-3 text-sm">
-                              <input type="checkbox" 
-                                     class="issue-checkbox mr-2"
-                                     data-issue-number="<%= issue.number %>"
-                                     onclick="event.stopPropagation(); handleIssueCheckbox(this)">
                               <a href="<%= issue.html_url %>" target="_blank" class="text-blue-600 hover:text-blue-800">
                                 #<%= issue.number %>
                               </a>
