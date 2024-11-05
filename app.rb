@@ -502,7 +502,7 @@ __END__
                           %>
                           <%
                             start_date = Date.parse(iteration['startDate'])
-                            end_date = start_date + iteration['duration'].to_i - 2
+                            end_date = start_date + iteration['duration'].to_i - 1
                             date_range = "#{start_date.strftime('%b %-d')} - #{end_date.strftime('%b %-d, %Y')}"
                           %>
                           <option value="<%= iteration['id'] %>" <%= 'selected' if matching_sprint %>>
@@ -618,7 +618,7 @@ __END__
         <table class="min-w-full divide-y divide-gray-300">
           <thead class="bg-gray-50">
             <tr>
-              <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">Pipeline</th>
+              <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">ZenHub Pipeline</th>
               <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">GitHub Status</th>
             </tr>
           </thead>
@@ -836,6 +836,51 @@ __END__
       updateJsonDisplay();
     }
 
+    let selectedPipelines = {
+      metadata: {
+        zenhubWorkspaceId: "<%= @workspace&.id %>",
+        githubProject: {
+          organization: "<%= params[:github_url] ? extract_github_project_info(params[:github_url])[:organization] : '' %>",
+          projectNumber: "<%= params[:github_url] ? extract_github_project_info(params[:github_url])[:project_number] : '' %>"
+        }
+      },
+      mappings: {}
+    };
+
+    function handlePipelineStatusSelect(select) {
+      const pipelineId = select.dataset.pipelineId;
+      const pipelineName = select.dataset.pipelineName;
+      const selectedOption = select.options[select.selectedIndex];
+      
+      if (selectedOption.value !== "") {
+        selectedPipelines.mappings[pipelineId] = {
+          fromPipeline: {
+            id: pipelineId,
+            name: pipelineName
+          },
+          toStatus: {
+            id: selectedOption.value,
+            name: selectedOption.text
+          }
+        };
+      } else {
+        delete selectedPipelines.mappings[pipelineId];
+      }
+      
+      updatePipelineMappingsJson();
+    }
+
+    function updatePipelineMappingsJson() {
+      const jsonDisplay = document.getElementById('pipeline-mappings-json');
+      if (Object.keys(selectedPipelines.mappings).length > 0) {
+        const prettyJson = JSON.stringify(selectedPipelines, null, 2);
+        jsonDisplay.querySelector('pre').textContent = prettyJson;
+        jsonDisplay.classList.remove('hidden');
+      } else {
+        jsonDisplay.classList.add('hidden');
+      }
+    }
+
     function updateJsonDisplay() {
       const jsonDisplay = document.getElementById('selected-issues-json');
       if (Object.keys(selectedIssues).length > 1) { // Exclude metadata from count
@@ -868,198 +913,40 @@ __END__
 
 @@setup
 <div class="min-h-full flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-  <% if @workspace %>
-    <div class="sm:mx-auto sm:w-full sm:max-w-4xl">
-        <h2 class="text-2xl font-bold mb-2"><%= @workspace.display_name %></h2>
-        <div class="flex gap-4 mb-4 text-sm text-gray-600">
-          <a href="<%= params[:workspace_url] %>" target="_blank" class="hover:text-gray-900 flex items-center gap-1">
-            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M10 6V8H5V19H16V14H18V20C18 20.5523 17.5523 21 17 21H4C3.44772 21 3 20.5523 3 20V7C3 6.44772 3.44772 6 4 6H10ZM21 3V11H19L18.9999 6.413L11.2071 14.2071L9.79289 12.7929L17.5849 5H13V3H21Z"/>
-            </svg>
-            ZenHub Workspace
-          </a>
-          <a href="<%= params[:github_url] %>" target="_blank" class="hover:text-gray-900 flex items-center gap-1">
-            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M10 6V8H5V19H16V14H18V20C18 20.5523 17.5523 21 17 21H4C3.44772 21 3 20.5523 3 20V7C3 6.44772 3.44772 6 4 6H10ZM21 3V11H19L18.9999 6.413L11.2071 14.2071L9.79289 12.7929L17.5849 5H13V3H21Z"/>
-            </svg>
-            GitHub Project
-          </a>
+  <div class="sm:mx-auto sm:w-full sm:max-w-md">
+    <h2 class="mt-6 text-center text-3xl font-bold tracking-tight text-gray-900">Connect Your Project</h2>
+    <p class="mt-2 text-center text-sm text-gray-600">
+      Enter both your ZenHub workspace and GitHub project URLs
+    </p>
+  </div>
+
+  <div class="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
+    <div class="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+      <form class="space-y-6" method="GET" action="/pipelines">
+        <div>
+          <label for="workspace_url" class="block text-sm font-medium text-gray-700">ZenHub Workspace URL</label>
+          <div class="mt-1">
+            <input id="workspace_url" name="workspace_url" type="text" required autofocus
+                    placeholder="https://app.zenhub.com/workspaces/workspace-name-id"
+                    class="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm">
+          </div>
         </div>
-        <% if @sprints.any? %>
-          <div class="mb-6">
-            <div class="flex justify-between items-center mb-2">
-              <h3 class="text-lg font-medium text-gray-900">Sprint Mapping</h3>
-              <div id="selected-issues-json" class="text-xs text-gray-500 mt-2 whitespace-pre-wrap hidden"></div>
-              <a href="<%= params[:github_url] %>/settings/fields/<%= @github_sprint_field.dig('databaseId') %>" 
-                 target="_blank" 
-                 class="text-sm text-gray-600 hover:text-gray-900 flex items-center gap-1">
-                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M10 6V8H5V19H16V14H18V20C18 20.5523 17.5523 21 17 21H4C3.44772 21 3 20.5523 3 20V7C3 6.44772 3.44772 6 4 6H10ZM21 3V11H19L18.9999 6.413L11.2071 14.2071L9.79289 12.7929L17.5849 5H13V3H21Z"/>
-                </svg>
-                Need to add a Sprint?
-              </a>
-            </div>
-            <div class="overflow-hidden shadow ring-1 ring-black ring-opacity-5 sm:rounded-lg">
-              <table class="min-w-full divide-y divide-gray-300">
-                <thead class="bg-gray-50">
-                  <tr>
-                    <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">ZenHub Sprint</th>
-                    <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">GitHub Sprint</th>
-                  </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-200 bg-white">
-                  <% 
-                    # Sort sprints by start date
-                    sorted_sprints = @sprints.sort_by { |sprint| -Date.parse(sprint.start_at).to_time.to_i }
-                    sorted_sprints.each do |sprint| 
-                  %>
-                    <tr>
-                      <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900">
-                        <%= sprint.name %>
-                        <span class="text-xs text-gray-500 ml-2">
-                          (<%= sprint.id %>)
-                        </span>
-                      </td>
-                      <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500 text-right">
-                        <select class="block w-full rounded-md border-0 py-1.5 pl-3 pr-10 text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-indigo-600 sm:text-sm/6">
-                          <option value="">None</option>
-                          <% 
-                            all_iterations = (@github_sprint_field&.dig('configuration', 'iterations') || []) +
-                                           (@github_sprint_field&.dig('configuration', 'completedIterations') || [])
-                            # Sort iterations by start date
-                            all_iterations = all_iterations.sort_by { |i| Date.parse(i['startDate']) }
-                            all_iterations.each do |iteration| 
-                          %>
-                            <% 
-                              # Find matching sprint in pipeline data
-                              matching_sprint = sprint.start_at && 
-                                (Date.parse(sprint.start_at) - Date.parse(iteration['startDate'])).abs <= 1
-                            %>
-                            <%
-                              start_date = Date.parse(iteration['startDate'])
-                              end_date = start_date + iteration['duration'].to_i - 1
-                              date_range = "#{start_date.strftime('%b %-d')} - #{end_date.strftime('%b %-d, %Y')}"
-                            %>
-                            <option value="<%= iteration['id'] %>" <%= 'selected' if matching_sprint %>>
-                              <%= iteration['title'] %> (<%= date_range %>)
-                            </option>
-                          <% end %>
-                        </select>
-                      </td>
-                    </tr>
-                  <% end %>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        <% end %>
-        <div class="space-y-4">
-          <% @workspace.pipelines.each do |pipeline| %>
-            <div class="bg-white shadow rounded-lg">
-              <div class="p-4 flex justify-between items-center">
-                <button onclick="toggleAccordion('<%= pipeline.id %>')" class="flex-1 text-left flex items-center">
-                  <h3 class="text-lg font-medium text-gray-900">
-                    <%= pipeline.name %> 
-                    <span class="text-sm text-gray-500"><%= @pipeline_data[pipeline.id][:count] %> issues</span>
-                  </h3>
 
-                  <svg id="arrow-<%= pipeline.id %>" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 transition-transform duration-200 ml-2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
-                  </svg>
-                </button>
-                <div class="ml-4">
-                  <select class="block w-full rounded-md border-0 py-1.5 pl-3 pr-10 text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-indigo-600 sm:text-sm/6">
-                    <% @github_status_options&.each do |option| %>
-                      <option value="<%= option['id'] %>"><%= option['name'] %></option>
-                    <% end %>
-                  </select>
-                </div>
-              </div>
-                <tr id="content-<%= pipeline.id %>" class="hidden">
-                  <td colspan="2" class="px-0 border-t border-gray-200">
-                    <div class="overflow-x-auto">
-                      <table class="min-w-full divide-y divide-gray-300">
-                    <thead class="bg-gray-50">
-                      <tr>
-                        <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">Issue</th>
-                        <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Title</th>
-                        <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Points</th>
-                        <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Sprint</th>
-                      </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-200 bg-white">
-                      <% @pipeline_data[pipeline.id][:issues].each do |issue| %>
-                        <tr>
-                          <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm">
-                            <a href="<%= issue.html_url %>" target="_blank" class="text-blue-600 hover:text-blue-800">
-                              #<%= issue.number %>
-                            </a>
-                          </td>
-                          <td class="whitespace-normal px-3 py-4 text-sm text-gray-700">
-                            <%= issue.title %>
-                          </td>
-                          <td class="whitespace-nowrap px-3 py-4 text-sm">
-                            <% if issue.estimate&.value %>
-                              <span class="inline-flex items-center rounded-md bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600">
-                                <%= issue.estimate.value.round %> points
-                              </span>
-                            <% end %>
-                          </td>
-                          <td class="whitespace-nowrap px-3 py-4 text-sm">
-                            <% if issue.sprints.total_count > 0 %>
-                              <span class="inline-flex items-center rounded-md bg-blue-100 px-2 py-1 text-xs font-medium text-blue-700">
-                                <%= issue.sprints.nodes.first.name %>
-                              </span>
-                            <% end %>
-                          </td>
-                        </tr>
-                      <% end %>
-                    </tbody>
-                      </table>
-                    </div>
-                  </td>
-                </tr>
-              <% end %>
-            </tbody>
-          </table>
+        <div>
+          <label for="github_url" class="block text-sm font-medium text-gray-700">GitHub Project URL</label>
+          <div class="mt-1">
+            <input id="github_url" name="github_url" type="text" required
+                    placeholder="https://github.com/orgs/owner/projects/1"
+                    class="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm">
+          </div>
         </div>
-    </div>
-  <% else %>
-    <div class="sm:mx-auto sm:w-full sm:max-w-md">
-      <h2 class="mt-6 text-center text-3xl font-bold tracking-tight text-gray-900">Connect Your Project</h2>
-      <p class="mt-2 text-center text-sm text-gray-600">
-        Enter both your ZenHub workspace and GitHub project URLs
-      </p>
-    </div>
 
-    <div class="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-      <div class="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
-        <form class="space-y-6" method="GET" action="/pipelines">
-          <div>
-            <label for="workspace_url" class="block text-sm font-medium text-gray-700">ZenHub Workspace URL</label>
-            <div class="mt-1">
-              <input id="workspace_url" name="workspace_url" type="text" required autofocus
-                     placeholder="https://app.zenhub.com/workspaces/workspace-name-id"
-                     class="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm">
-            </div>
-          </div>
-
-          <div>
-            <label for="github_url" class="block text-sm font-medium text-gray-700">GitHub Project URL</label>
-            <div class="mt-1">
-              <input id="github_url" name="github_url" type="text" required
-                     placeholder="https://github.com/orgs/owner/projects/1"
-                     class="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm">
-            </div>
-          </div>
-
-          <div>
-            <button type="submit" class="flex w-full justify-center rounded-md border border-transparent bg-indigo-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
-              View Workspace
-            </button>
-          </div>
-        </form>
-      </div>
+        <div>
+          <button type="submit" class="flex w-full justify-center rounded-md border border-transparent bg-indigo-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
+            View Workspace
+          </button>
+        </div>
+      </form>
     </div>
-  <% end %>
+  </div>
 </div>
