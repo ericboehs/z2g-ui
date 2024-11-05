@@ -441,7 +441,7 @@ __END__
               <thead class="bg-gray-50">
                 <tr>
                   <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">ZenHub Sprint</th>
-                  <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">GitHub Sprint</th>
+                  <th scope="col" class="px-3 py-3.5 text-center text-sm font-semibold text-gray-900">GitHub Sprint</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-gray-200 bg-white">
@@ -459,21 +459,24 @@ __END__
                   %>
                   <tr class="hover:bg-gray-50">
                     <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm">
-                      <div class="flex items-center">
-                        <input type="checkbox" 
-                               class="sprint-checkbox mr-2"
-                               data-sprint-name="<%= sprint.name %>"
-                               onclick="handleSprintCheckbox(this)">
-                        <div class="cursor-pointer flex items-center" onclick="toggleAccordion('<%= sprint.name %>')">
-                          <svg id="arrow-<%= sprint.name %>" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 transition-transform duration-200 mr-2">
-                          <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+                      <div class="flex items-center justify-between">
+                        <div class="flex items-center">
+                          <input type="checkbox" 
+                                 class="sprint-checkbox mr-2"
+                                 data-sprint-name="<%= sprint.name %>"
+                                 onclick="handleSprintCheckbox(this)">
+                          <div class="cursor-pointer flex items-center" onclick="toggleAccordion('<%= sprint.name %>')">
+                            <span class="font-medium text-gray-900"><%= sprint.name %></span>
+                            <span class="text-gray-500 ml-2">(<%= sprint_issues.length %> issues)</span>
+                          </div>
+                        </div>
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
                         </svg>
-                        <span class="font-medium text-gray-900"><%= sprint.name %></span>
-                        <span class="text-gray-500 ml-2">(<%= sprint_issues.length %> issues)</span>
                       </div>
                     </td>
-                    <td class="whitespace-nowrap px-3 py-4 text-sm">
-                      <select class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:max-w-xs sm:text-sm sm:leading-6" onclick="event.stopPropagation()">
+                    <td class="whitespace-nowrap px-3 py-4 text-sm text-right">
+                      <select class="block w-full max-w-xs ml-auto rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6" onclick="event.stopPropagation()">
                         <option value="">None</option>
                         <% 
                           all_iterations = (@github_sprint_field&.dig('configuration', 'iterations') || []) +
