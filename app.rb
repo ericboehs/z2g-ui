@@ -414,7 +414,7 @@ __END__
   <% if @workspace %>
     <div class="sm:mx-auto sm:w-full sm:max-w-4xl">
       <div class="flex justify-between items-center mb-6">
-        <h2 class="text-2xl font-bold"><%= @workspace.display_name %></h2>
+        <h2 class="text-2xl font-bold">Select <%= @workspace.display_name %> Sprints for Migration</h2>
         <div class="flex gap-4">
           <a href="/clear-cache" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
             <svg class="w-4 h-4 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -595,14 +595,8 @@ __END__
   <% if @workspace %>
     <div class="sm:mx-auto sm:w-full sm:max-w-4xl">
       <div class="flex justify-between items-center mb-6">
-        <h2 class="text-2xl font-bold"><%= @workspace.display_name %></h2>
+        <h2 class="text-2xl font-bold">Select <%= @workspace.display_name %> Pipelines for Migration</h2>
         <div class="flex gap-4">
-          <a href="/sprints?<%= request.query_string %>" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
-            Sprints
-          </a>
-          <a href="/pipelines?<%= request.query_string %>" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700">
-            Pipelines
-          </a>
           <a href="/clear-cache" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
             <svg class="w-4 h-4 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -965,7 +959,7 @@ __END__
 
         <div>
           <button type="submit" class="flex w-full justify-center rounded-md border border-transparent bg-indigo-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
-            View Workspace
+            View Pipelines
           </button>
         </div>
       </form>
