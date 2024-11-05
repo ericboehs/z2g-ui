@@ -4,7 +4,7 @@
     <div class="sm:mx-auto sm:w-full sm:max-w-4xl">
       <div class="mb-6">
         <div class="flex justify-between items-center mb-6">
-          <h2 class="text-2xl font-bold">Select <%= @workspace["displayName"] %> Sprints for Migration</h2>
+          <h2 class="text-2xl font-bold">Map new Sprints for <%= @workspace["displayName"] %></h2>
           <div class="flex gap-4">
             <a href="/clear-cache" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
               <svg class="w-4 h-4 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -106,7 +106,7 @@
                     <td class="whitespace-nowrap px-3 py-4 text-sm text-right">
                       <select class="block w-full max-w-xs ml-auto rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6" 
                               onclick="event.stopPropagation()"
-                              onchange="handleSprintSelect(this)">
+                              onchange="handleSprintSelect(this); updateStyles(this)">
                         <option value="">None</option>
                         <% 
                           all_iterations = (@github_sprint_field&.dig('configuration', 'iterations') || []) +
@@ -188,4 +188,27 @@
     </div>
   <% end %>
   <div class="pb-[35vh]"></div>
+  <script>
+    function updateStyles(selectElement) {
+      const row = selectElement.closest('tr');
+      const contentRow = document.getElementById('content-' + row.querySelector('.sprint-checkbox').dataset.sprintName);
+      const isNoneSelected = selectElement.value === '';
+
+      if (isNoneSelected) {
+        row.querySelector('span.font-medium').classList.add('line-through', 'text-gray-400');
+        contentRow.querySelectorAll('.issue-row').forEach(issueRow => {
+          issueRow.classList.add('line-through', 'text-gray-400');
+        });
+      } else {
+        row.querySelector('span.font-medium').classList.remove('line-through', 'text-gray-400');
+        contentRow.querySelectorAll('.issue-row').forEach(issueRow => {
+          issueRow.classList.remove('line-through', 'text-gray-400');
+        });
+      }
+    }
+
+    document.querySelectorAll('select').forEach(select => {
+      updateStyles(select);
+    });
+  </script>
 </div>
