@@ -54,21 +54,20 @@
       );
       
       checkedIssues.forEach(checkbox => {
-        const issueNumber = checkbox.dataset.issueNumber;
         const issueRow = checkbox.closest('tr');
         const issueLink = issueRow.querySelector('a[href]');
+        const issueUrl = issueLink.href;
         
         if (selectedOption.value !== "") {
-          selectedIssues[issueNumber] = {
-            fromSprint: sprintName,
-            toSprint: {
+          selectedIssues[issueUrl] = {
+            fromZenHubSprint: sprintName,
+            toGitHubSprint: {
               id: selectedOption.value,
               name: selectedOption.text
-            },
-            url: issueLink.href
+            }
           };
         } else {
-          delete selectedIssues[issueNumber];
+          delete selectedIssues[issueUrl];
         }
       });
       

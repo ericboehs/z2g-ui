@@ -90,7 +90,9 @@
                       </div>
                     </td>
                     <td class="whitespace-nowrap px-3 py-4 text-sm text-right">
-                      <select class="block w-full max-w-xs ml-auto rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6" onclick="event.stopPropagation()">
+                      <select class="block w-full max-w-xs ml-auto rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6" 
+                              onclick="event.stopPropagation()"
+                              onchange="handleSprintSelect(this)">
                         <option value="">None</option>
                         <% 
                           all_iterations = (@github_sprint_field&.dig('configuration', 'iterations') || []) +
