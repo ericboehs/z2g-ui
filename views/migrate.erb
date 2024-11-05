@@ -1,0 +1,21 @@
+<%= erb :_progress_nav, locals: { steps: steps } %>
+<div class="min-h-full flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+  <div class="sm:mx-auto sm:w-full sm:max-w-md">
+    <h2 class="mt-6 text-center text-3xl font-bold tracking-tight text-gray-900">Ready to Migrate</h2>
+    <p class="mt-2 text-center text-sm text-gray-600">
+      Review your settings and start the migration
+    </p>
+  </div>
+
+  <div class="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
+    <div class="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+      <form class="space-y-6" method="POST" action="/migrate">
+        <div>
+          <button type="submit" class="flex w-full justify-center rounded-md border border-transparent bg-indigo-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
+            Start Migration
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

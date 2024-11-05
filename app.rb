@@ -393,14 +393,18 @@ class App < Sinatra::Base
   end
 
   get '/' do
+    redirect '/connect'
+  end
+
+  get '/connect' do
     steps = [
-      { name: "Setup", number: "01", current: true, completed: false, url: "/" },
+      { name: "Connect", number: "01", current: true, completed: false, url: "/connect" },
       { name: "Pipelines", number: "02", current: false, completed: false, url: "/pipelines?#{request.query_string}" },
       { name: "Sprints", number: "03", current: false, completed: false, url: "/sprints?#{request.query_string}" },
       { name: "Migrate", number: "04", current: false, completed: false, url: "/migrate?#{request.query_string}" }
     ]
 
-    erb :setup, locals: { steps: steps }
+    erb :connect, locals: { steps: steps }
   end
 
   get '/pipelines' do
@@ -417,7 +421,7 @@ class App < Sinatra::Base
     App.save_caches
 
     steps = [
-      { name: "Setup", number: "01", current: false, completed: true, url: "/" },
+      { name: "Connect", number: "01", current: false, completed: true, url: "/connect?#{request.query_string}" },
       { name: "Pipelines", number: "02", current: true, completed: false, url: "/pipelines?#{request.query_string}" },
       { name: "Sprints", number: "03", current: false, completed: false, url: "/sprints?#{request.query_string}" },
       { name: "Migrate", number: "04", current: false, completed: false, url: "/migrate?#{request.query_string}" }
@@ -440,7 +444,7 @@ class App < Sinatra::Base
     App.save_caches
 
     steps = [
-      { name: "Setup", number: "01", current: false, completed: true, url: "/" },
+      { name: "Connect", number: "01", current: false, completed: true, url: "/connect?#{request.query_string}" },
       { name: "Pipelines", number: "02", current: false, completed: true, url: "/pipelines?#{request.query_string}" },
       { name: "Sprints", number: "03", current: true, completed: false, url: "/sprints?#{request.query_string}" },
       { name: "Migrate", number: "04", current: false, completed: false, url: "/migrate?#{request.query_string}" }
@@ -452,7 +456,7 @@ class App < Sinatra::Base
   get '/migrate' do
     # Implement migration logic here
     steps = [
-      { name: "Setup", number: "01", current: false, completed: true, url: "/" },
+      { name: "Connect", number: "01", current: false, completed: true, url: "/connect?#{request.query_string}" },
       { name: "Pipelines", number: "02", current: false, completed: true, url: "/pipelines?#{request.query_string}" },
       { name: "Sprints", number: "03", current: false, completed: true, url: "/sprints?#{request.query_string}" },
       { name: "Migrate", number: "04", current: true, completed: false, url: "/migrate?#{request.query_string}" }

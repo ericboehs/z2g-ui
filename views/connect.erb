@@ -1,9 +1,9 @@
 <%= erb :_progress_nav, locals: { steps: steps } %>
 <div class="min-h-full flex flex-col justify-center py-12 sm:px-6 lg:px-8">
   <div class="sm:mx-auto sm:w-full sm:max-w-md">
-    <h2 class="mt-6 text-center text-3xl font-bold tracking-tight text-gray-900">Connect Your Project</h2>
+    <h2 class="mt-6 text-center text-3xl font-bold tracking-tight text-gray-900">Connect Your Projects</h2>
     <p class="mt-2 text-center text-sm text-gray-600">
-      Enter both your ZenHub workspace and GitHub project URLs
+      Connect your ZenHub workspace and GitHub project
     </p>
   </div>
 
@@ -14,6 +14,7 @@
           <label for="workspace_url" class="block text-sm font-medium text-gray-700">ZenHub Workspace URL</label>
           <div class="mt-1">
             <input id="workspace_url" name="workspace_url" type="text" required autofocus
+                    value="<%= params[:workspace_url] %>"
                     placeholder="https://app.zenhub.com/workspaces/workspace-name-id"
                     class="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm">
           </div>
@@ -23,6 +24,7 @@
           <label for="github_url" class="block text-sm font-medium text-gray-700">GitHub Project URL</label>
           <div class="mt-1">
             <input id="github_url" name="github_url" type="text" required
+                    value="<%= params[:github_url] %>"
                     placeholder="https://github.com/orgs/owner/projects/1"
                     class="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm">
           </div>
