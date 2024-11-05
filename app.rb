@@ -5,10 +5,12 @@ gemfile do
   gem 'sinatra'
   gem 'graphql-client'
   gem 'puma'
-  gem 'pry'
   gem 'rack'
   gem 'rackup'
   gem 'uri'
+
+  # Development gems
+  gem 'pry'
   gem 'rerun'
 end
 
@@ -636,8 +638,13 @@ __END__
                   <select class="block w-full rounded-md border-0 py-1.5 pl-3 pr-10 text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-indigo-600 sm:text-sm/6" 
                           onclick="event.stopPropagation()"
                           onchange="handleSprintSelect(this)">
+                    <% 
+                      max_distance = 3
+                      closest_option, distance = @github_status_options.map { |option| [option, DidYouMean::Levenshtein.distance(pipeline.name, option['name'])] }.min_by { |_, dist| dist }
+                      closest_option = nil if distance > max_distance
+                    %>
                     <% @github_status_options&.each do |option| %>
-                      <option value="<%= option['id'] %>"><%= option['name'] %></option>
+                      <option value="<%= option['id'] %>" <%= 'selected' if option == closest_option %>><%= option['name'] %></option>
                     <% end %>
                   </select>
                 </td>
