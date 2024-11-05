@@ -25,6 +25,7 @@ require 'graphql/client/http'
 require 'uri'
 require 'net/http'
 require 'json'
+require 'fileutils'
 require_relative 'github_project'
 
 class App < Sinatra::Base
@@ -36,6 +37,32 @@ class App < Sinatra::Base
   
   # Cache expiration time (1 hour)
   CACHE_EXPIRY = 3600
+  CACHE_DIR = 'cache'
+
+  def self.save_caches
+    FileUtils.mkdir_p(CACHE_DIR)
+    
+    File.write(File.join(CACHE_DIR, 'zenhub_cache.json'), JSON.pretty_generate(@@zenhub_cache))
+    File.write(File.join(CACHE_DIR, 'github_cache.json'), JSON.pretty_generate(@@github_cache))
+    $logger.info "Saved caches to #{CACHE_DIR}/"
+  end
+
+  def self.load_caches
+    return unless File.directory?(CACHE_DIR)
+
+    zenhub_cache_file = File.join(CACHE_DIR, 'zenhub_cache.json')
+    github_cache_file = File.join(CACHE_DIR, 'github_cache.json')
+
+    if File.exist?(zenhub_cache_file)
+      @@zenhub_cache = JSON.parse(File.read(zenhub_cache_file), symbolize_names: true)
+      $logger.info "Loaded ZenHub cache from #{zenhub_cache_file}"
+    end
+
+    if File.exist?(github_cache_file)
+      @@github_cache = JSON.parse(File.read(github_cache_file), symbolize_names: true)
+      $logger.info "Loaded GitHub cache from #{github_cache_file}"
+    end
+  end
 
   if ENV['ZENHUB_TOKEN']
     # GraphQL client setup
@@ -204,24 +231,32 @@ class App < Sinatra::Base
       end
       
       # Query ZenHub
+      $logger.info "Querying ZenHub workspace: #{workspace_id}"
       result = Client.query(PipelinesQuery, variables: { workspaceId: workspace_id })
-      @workspace = result.data.workspace if result.data
+      @workspace = result.data.workspace.to_hash if result.data&.workspace
 
       # Fetch issue counts for each pipeline
       if @workspace
-        repository_ids = @workspace.repositories.map(&:id)
+        repository_ids = @workspace["repositories"].map { |repo| repo["id"] }
         @pipeline_data = {}
-        @workspace.pipelines.each do |pipeline|
-          issues_result = fetch_pipeline_issues(workspace_id, pipeline.id, repository_ids)
+        @workspace["pipelines"].each do |pipeline|
+          $logger.info "Fetching issues for pipeline: #{pipeline['name']} (#{pipeline['id']})"
+          issues_result = fetch_pipeline_issues(workspace_id, pipeline['id'], repository_ids)
           issues = issues_result.data.search_issues_by_pipeline.nodes
-          @pipeline_data[pipeline.id] = {
+          @pipeline_data[pipeline['id']] = {
             count: issues_result.data.search_issues_by_pipeline.pipeline_counts.issues_count,
             issues: issues
           }
         end
+        @pipeline_data = @pipeline_data.transform_values { |data|
+          {
+            count: data[:count],
+            issues: data[:issues].map(&:to_hash)
+          }
+        }
 
         # Get sprints directly from workspace
-        @sprints = query_workspace_sprints(workspace_id)
+        @sprints = query_workspace_sprints(workspace_id).map(&:to_hash)
 
         # Cache the results
         @@zenhub_cache[cache_key] = {
@@ -234,6 +269,7 @@ class App < Sinatra::Base
     end
 
     def query_workspace_sprints(workspace_id)
+      $logger.info "Querying ZenHub sprints for workspace: #{workspace_id}"
       result = Client.query(WorkspaceSprintsQuery, variables: { workspaceId: workspace_id })
       result.data.workspace.sprints.nodes if result.data&.workspace
     end
@@ -275,6 +311,7 @@ class App < Sinatra::Base
       request['Content-Type'] = 'application/json'
       request.body = { query: github_query }.to_json
 
+      $logger.info "Querying GitHub project: #{github_info[:organization]}/#{github_info[:project_number]}"
       response = http.request(request)
       if response.is_a?(Net::HTTPSuccess)
         github_data = JSON.parse(response.body)
@@ -328,6 +365,7 @@ class App < Sinatra::Base
         status_request['Content-Type'] = 'application/json'
         status_request.body = { query: status_query }.to_json
 
+        $logger.info "Querying GitHub project status fields for: #{@github_project_id}"
         status_response = http.request(status_request)
         if status_response.is_a?(Net::HTTPSuccess)
           status_data = JSON.parse(status_response.body)
@@ -339,8 +377,8 @@ class App < Sinatra::Base
           github_project = Github::Project.new(
             token: ENV.fetch('GITHUB_TOKEN'), organization: github_info[:organization], number: github_info[:project_number]
           )
-          @github_issues = github_project.issues
-          
+          @github_issues = github_project.issues.map(&:to_hash)
+
           @@github_cache[cache_key] = {
             project_id: @github_project_id,
             status_options: @github_status_options,
@@ -361,6 +399,7 @@ class App < Sinatra::Base
       { name: "Sprints", number: "03", current: false, completed: false, url: "/sprints?#{request.query_string}" },
       { name: "Migrate", number: "04", current: false, completed: false, url: "/migrate?#{request.query_string}" }
     ]
+
     erb :setup, locals: { steps: steps }
   end
 
@@ -375,6 +414,7 @@ class App < Sinatra::Base
 
     query_zenhub_workspace(workspace_id)
     query_github_project(github_info)
+    App.save_caches
 
     steps = [
       { name: "Setup", number: "01", current: false, completed: true, url: "/" },
@@ -382,6 +422,7 @@ class App < Sinatra::Base
       { name: "Sprints", number: "03", current: false, completed: false, url: "/sprints?#{request.query_string}" },
       { name: "Migrate", number: "04", current: false, completed: false, url: "/migrate?#{request.query_string}" }
     ]
+
     erb :pipelines, locals: { steps: steps }
   end
 
@@ -396,6 +437,7 @@ class App < Sinatra::Base
 
     query_zenhub_workspace(workspace_id)
     query_github_project(github_info)
+    App.save_caches
 
     steps = [
       { name: "Setup", number: "01", current: false, completed: true, url: "/" },
@@ -403,6 +445,7 @@ class App < Sinatra::Base
       { name: "Sprints", number: "03", current: true, completed: false, url: "/sprints?#{request.query_string}" },
       { name: "Migrate", number: "04", current: false, completed: false, url: "/migrate?#{request.query_string}" }
     ]
+
     erb :sprints, locals: { steps: steps }
   end
 
@@ -414,14 +457,20 @@ class App < Sinatra::Base
       { name: "Sprints", number: "03", current: false, completed: true, url: "/sprints?#{request.query_string}" },
       { name: "Migrate", number: "04", current: true, completed: false, url: "/migrate?#{request.query_string}" }
     ]
+
     erb :migrate, locals: { steps: steps }
   end
 
   get '/clear-cache' do
     @@zenhub_cache.clear
     @@github_cache.clear
+    App.save_caches
     redirect back
   end
 end
 
-App.run! if __FILE__ == $0
+if __FILE__ == $0
+  App.load_caches
+  at_exit { App.save_caches }
+  App.run!
+end

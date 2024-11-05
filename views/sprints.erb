@@ -3,7 +3,7 @@
   <% if @workspace %>
     <div class="sm:mx-auto sm:w-full sm:max-w-4xl">
       <div class="flex justify-between items-center mb-6">
-        <h2 class="text-2xl font-bold">Select <%= @workspace.display_name %> Sprints for Migration</h2>
+        <h2 class="text-2xl font-bold">Select <%= @workspace["displayName"] %> Sprints for Migration</h2>
         <div class="flex gap-4">
           <a href="/clear-cache" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
             <svg class="w-4 h-4 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -57,30 +57,30 @@
               </thead>
               <tbody class="divide-y divide-gray-200 bg-white">
                   <%
-                    sorted_sprints = @sprints.sort_by { |sprint| -Date.parse(sprint.start_at).to_time.to_i }
+                    sorted_sprints = @sprints.sort_by { |sprint| -Date.parse(sprint["startAt"]).to_time.to_i }
                     sorted_sprints.each do |sprint|
                       # Find all issues where this is their latest sprint
                       sprint_issues = @pipeline_data.values.flat_map { |data| 
                         data[:issues].select { |issue| 
-                          latest_sprint = issue.sprints.nodes.max_by { |s| Date.parse(s.start_at) }
-                          latest_sprint&.id == sprint.id
+                          latest_sprint = issue["sprints"]["nodes"].max_by { |s| Date.parse(s["startAt"]) }
+                          latest_sprint&.dig("id") == sprint["id"]
                         }
                       }
                       next if sprint_issues.empty? # Skip sprints with no issues
                   %>
-                  <tr class="hover:bg-gray-50">
+                  <tr class="hover:bg-gray-50 sprint-row">
                     <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm">
                       <div class="flex items-center justify-between">
                         <div class="flex items-center">
                           <input type="checkbox" 
                                  class="sprint-checkbox mr-2"
-                                 data-sprint-name="<%= sprint.name %>"
+                                 data-sprint-name="<%= sprint["name"] %>"
                                  onclick="handleSprintCheckbox(this)">
-                          <div class="cursor-pointer flex items-center" onclick="toggleAccordion('<%= sprint.name %>')">
-                            <svg id="arrow-<%= sprint.name %>" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 transition-transform duration-200 mr-2">
+                          <div class="cursor-pointer flex items-center" onclick="toggleAccordion('<%= sprint["name"] %>')">
+                            <svg id="arrow-<%= sprint["name"] %>" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 transition-transform duration-200 mr-2">
                               <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
                             </svg>
-                            <span class="font-medium text-gray-900"><%= sprint.name %></span>
+                            <span class="font-medium text-gray-900"><%= sprint["name"] %></span>
                             <span class="text-gray-500 ml-2">(<%= sprint_issues.length %> issues)</span>
                           </div>
                         </div>
@@ -101,12 +101,12 @@
                           <% 
                             matching_sprint = @pipeline_data.values.flat_map { |data| 
                               data[:issues].flat_map { |issue| 
-                                issue.sprints.nodes
+                                issue.dig('sprints', 'nodes')
                               }
                             }.find { |zh_sprint| 
-                              zh_sprint.name == sprint.name && 
-                              zh_sprint.start_at && 
-                              (Date.parse(zh_sprint.start_at) - Date.parse(iteration['startDate'])).abs <= 1
+                              zh_sprint['name'] == sprint['name'] && 
+                              zh_sprint['startAt'] && 
+                              (Date.parse(zh_sprint['startAt']) - Date.parse(iteration['startDate'])).abs <= 1
                             }
                           %>
                           <%
@@ -121,42 +121,37 @@
                       </select>
                     </td>
                   </tr>
-                  <tr id="content-<%= sprint.name %>" class="hidden">
+                  <tr id="content-<%= sprint["name"] %>" class="hidden">
                     <td colspan="2" class="px-0 border-t border-gray-200">
                       <div class="overflow-x-auto">
                         <table class="min-w-full divide-y divide-gray-300">
                           <thead class="bg-gray-50">
                             <tr>
                               <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 pl-8">Issue</th>
-                              <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Pipeline</th>
                               <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Title</th>
                               <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Points</th>
                             </tr>
                           </thead>
                           <tbody class="divide-y divide-gray-200 bg-white pl-8">
                             <% sprint_issues.each do |issue| %>
-                              <tr class="issue-row" data-sprint-name="<%= sprint.name %>">
+                              <tr class="issue-row" data-sprint-name="<%= sprint["name"] %>">
                                 <td class="whitespace-nowrap py-4 pl-8 pr-3 text-sm">
                                   <input type="checkbox" 
                                          class="issue-checkbox mr-2"
-                                         data-issue-number="<%= issue.number %>"
-                                         data-sprint-name="<%= sprint.name %>"
+                                         data-issue-number="<%= issue["number"] %>"
+                                         data-sprint-name="<%= sprint["name"] %>"
                                          onclick="handleIssueCheckbox(this)">
-                                  <a href="<%= issue.html_url %>" target="_blank" class="text-blue-600 hover:text-blue-800">
-                                    #<%= issue.number %>
+                                  <a href="<%= issue["htmlUrl"] %>" target="_blank" class="text-blue-600 hover:text-blue-800">
+                                    #<%= issue["number"] %>
                                   </a>
                                 </td>
-                                <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                                  <% pipeline = @workspace.pipelines.find { |p| @pipeline_data[p.id][:issues].include?(issue) } %>
-                                  <%= pipeline&.name %>
-                                </td>
                                 <td class="whitespace-normal px-3 py-4 text-sm text-gray-700">
-                                  <%= issue.title %>
+                                  <%= issue["title"] %>
                                 </td>
                                 <td class="whitespace-nowrap px-3 py-4 text-sm">
-                                  <% if issue.estimate&.value %>
+                                  <% if issue["estimate"]&.dig("value") %>
                                     <span class="inline-flex items-center rounded-md bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600">
-                                      <%= issue.estimate.value.round %> points
+                                      <%= issue["estimate"]["value"].round %> points
                                     </span>
                                   <% end %>
                                 </td>

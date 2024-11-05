@@ -6,7 +6,7 @@
   <script>
     let selectedIssues = {
       metadata: {
-        zenhubWorkspaceId: "<%= @workspace&.id %>",
+        zenhubWorkspaceId: "<%= @workspace&.dig('id') %>",
         githubProject: {
           organization: "<%= params[:github_url] ? extract_github_project_info(params[:github_url])[:organization] : '' %>",
           projectNumber: "<%= params[:github_url] ? extract_github_project_info(params[:github_url])[:project_number] : '' %>"
@@ -81,34 +81,22 @@
       const issueLink = issueRow.querySelector('a[href]');
       const issueUrl = issueLink.href;
       
-      // Find the sprint's select element by traversing up to the sprint row
-      let currentRow = issueRow;
-      let sprintSelect = null;
-      while (currentRow && !sprintSelect) {
-        currentRow = currentRow.previousElementSibling;
-        if (currentRow && !currentRow.classList.contains('issue-row')) {
-          sprintSelect = currentRow.querySelector('select');
-        }
-      }
+      // Find the sprint row by name and get its select element
+      const sprintRow = document.querySelector(`tr.sprint-row .sprint-checkbox[data-sprint-name="${sprintName}"]`)?.closest('tr');
+      const sprintSelect = sprintRow?.querySelector('select');
       
       if (checkbox.checked) {
         if (sprintSelect) {
           const selectedOption = sprintSelect.options[sprintSelect.selectedIndex];
-          selectedIssues[issueUrl] = {
-            fromSprint: sprintName,
-            toSprint: {
-              id: selectedOption.value || null,
-              name: selectedOption.text || "None"
-            }
-          };
-        } else {
-          selectedIssues[issueUrl] = {
-            fromSprint: sprintName,
-            toSprint: {
-              id: null,
-              name: "None"
-            }
-          };
+          if (selectedOption?.value) {
+            selectedIssues[issueUrl] = {
+              fromZenHubSprint: sprintName,
+              toGitHubSprint: {
+                id: selectedOption.value,
+                name: selectedOption.text
+              }
+            };
+          }
         }
       } else {
         delete selectedIssues[issueUrl];
@@ -135,7 +123,7 @@
 
     let selectedPipelines = {
       metadata: {
-        zenhubWorkspaceId: "<%= @workspace&.id %>",
+        zenhubWorkspaceId: "<%= @workspace&.dig('id') %>",
         githubProject: {
           organization: "<%= params[:github_url] ? extract_github_project_info(params[:github_url])[:organization] : '' %>",
           projectNumber: "<%= params[:github_url] ? extract_github_project_info(params[:github_url])[:project_number] : '' %>"
