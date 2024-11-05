@@ -7,6 +7,7 @@ gemfile do
   source 'https://rubygems.org'
   gem 'octokit'
   gem 'sinatra'
+  gem 'sinatra-session'
   gem 'graphql-client'
   gem 'puma'
   gem 'rack'
@@ -18,8 +19,8 @@ gemfile do
   gem 'rerun'
 end
 
-
 require 'sinatra/base'
+require 'sinatra/session'
 require 'graphql/client'
 require 'graphql/client/http'
 require 'uri'
@@ -30,6 +31,8 @@ require_relative 'github_project'
 
 class App < Sinatra::Base
   set :server, :puma
+  enable :sessions
+  set :session_secret, ENV.fetch('SESSION_SECRET')
   
   # Class-level cache for API responses
   @@zenhub_cache = {}
@@ -64,119 +67,118 @@ class App < Sinatra::Base
     end
   end
 
-  if ENV['ZENHUB_TOKEN']
-    # GraphQL client setup
-    HTTP = GraphQL::Client::HTTP.new('https://api.zenhub.com/public/graphql') do
-      def headers(context)
-        { "Authorization": "Bearer #{ENV['ZENHUB_TOKEN']}" }
-      end
+  # GraphQL client setup
+  class ZenhubHTTP < GraphQL::Client::HTTP
+    def headers(context)
+      { "Authorization": "Bearer #{context[:token]}" }
     end
+  end
 
-    Schema = GraphQL::Client.load_schema(HTTP)
-    Client = GraphQL::Client.new(schema: Schema, execute: HTTP)
+  HTTP = ZenhubHTTP.new('https://api.zenhub.com/public/graphql')
+  Schema = GraphQL::Client.load_schema("zenhub_schema.json")
+  Client = GraphQL::Client.new(schema: Schema, execute: HTTP)
 
-    # GraphQL query definition
-    PipelinesQuery = Client.parse <<~'GRAPHQL'
-      query($workspaceId: ID!) {
-        workspace(id: $workspaceId) {
-          id
-          displayName
-          repositoriesConnection {
-            nodes {
-              ghId
-              id
-              name
-            }
+  # GraphQL query definition
+  PipelinesQuery = Client.parse <<~'GRAPHQL'
+    query($workspaceId: ID!) {
+      workspace(id: $workspaceId) {
+        id
+        displayName
+        repositoriesConnection {
+          nodes {
+            ghId
+            id
+            name
           }
-          repositories {
+        }
+        repositories {
+          id
+          ghId
+          name
+          owner {
             id
             ghId
-            name
-            owner {
-              id
-              ghId
-              login
-              avatarUrl
-            }
+            login
+            avatarUrl
           }
-          pipelines(includeClosed: false) {
+        }
+        pipelines(includeClosed: false) {
+          id
+          name
+          isDefaultPRPipeline
+          isEpicPipeline
+        }
+        priorities {
+          id
+          name
+          color
+        }
+      }
+    }
+  GRAPHQL
+
+  WorkspaceSprintsQuery = Client.parse <<~'GRAPHQL'
+    query($workspaceId: ID!) {
+      workspace(id: $workspaceId) {
+        id
+        sprints {
+          nodes {
             id
             name
-            isDefaultPRPipeline
-            isEpicPipeline
-          }
-          priorities {
-            id
-            name
-            color
+            startAt
+            endAt
+            state
           }
         }
       }
-    GRAPHQL
+    }
+  GRAPHQL
 
-    WorkspaceSprintsQuery = Client.parse <<~'GRAPHQL'
-      query($workspaceId: ID!) {
-        workspace(id: $workspaceId) {
+  PipelineIssuesQuery = Client.parse <<~'GRAPHQL'
+    query($pipelineId: ID!, $query: String, $issuesAfter: String, $numberOfIssues: Int!, $filters: IssueSearchFiltersInput!, $order: IssueOrderInput) {
+      searchIssuesByPipeline(
+        pipelineId: $pipelineId
+        query: $query
+        filters: $filters
+        order: $order
+        after: $issuesAfter
+        first: $numberOfIssues
+      ) {
+        pageInfo {
+          endCursor
+          startCursor
+          hasNextPage
+        }
+        pipelineCounts {
+          issuesCount
+          pullRequestsCount
+          sumEstimates
+          unfilteredIssueCount
+          unfilteredSumEstimates
+        }
+        nodes {
           id
+          number
+          title
+          state
+          htmlUrl
+          type
+          viewerPermission
+          estimate {
+            value
+          }
           sprints {
+            totalCount
             nodes {
               id
               name
               startAt
-              endAt
-              state
             }
           }
         }
       }
-    GRAPHQL
-
-    PipelineIssuesQuery = Client.parse <<~'GRAPHQL'
-      query($pipelineId: ID!, $query: String, $issuesAfter: String, $numberOfIssues: Int!, $filters: IssueSearchFiltersInput!, $order: IssueOrderInput) {
-        searchIssuesByPipeline(
-          pipelineId: $pipelineId
-          query: $query
-          filters: $filters
-          order: $order
-          after: $issuesAfter
-          first: $numberOfIssues
-        ) {
-          pageInfo {
-            endCursor
-            startCursor
-            hasNextPage
-          }
-          pipelineCounts {
-            issuesCount
-            pullRequestsCount
-            sumEstimates
-            unfilteredIssueCount
-            unfilteredSumEstimates
-          }
-          nodes {
-            id
-            number
-            title
-            state
-            htmlUrl
-            type
-            viewerPermission
-            estimate {
-              value
-            }
-            sprints {
-              totalCount
-              nodes {
-                id
-                name
-                startAt
-              }
-            }
-          }
-        }
-      }
-    GRAPHQL
-  end
+    }
+  GRAPHQL
 
   helpers do
     def extract_github_project_info(url)
@@ -211,7 +213,8 @@ class App < Sinatra::Base
             matchType: "all",
             repositoryIds: repository_ids
           },
-        }
+        },
+        context: { token: session[:zenhub_token] }
       )
     end
 
@@ -232,7 +235,11 @@ class App < Sinatra::Base
       
       # Query ZenHub
       $logger.info "Querying ZenHub workspace: #{workspace_id}"
-      result = Client.query(PipelinesQuery, variables: { workspaceId: workspace_id })
+      result = Client.query(
+        PipelinesQuery,
+        variables: { workspaceId: workspace_id },
+        context: { token: session[:zenhub_token] }
+      )
       @workspace = result.data.workspace.to_hash if result.data&.workspace
 
       # Fetch issue counts for each pipeline
@@ -270,7 +277,11 @@ class App < Sinatra::Base
 
     def query_workspace_sprints(workspace_id)
       $logger.info "Querying ZenHub sprints for workspace: #{workspace_id}"
-      result = Client.query(WorkspaceSprintsQuery, variables: { workspaceId: workspace_id })
+      result = Client.query(
+        WorkspaceSprintsQuery,
+        variables: { workspaceId: workspace_id },
+        context: { token: session[:zenhub_token] }
+      )
       result.data.workspace.sprints.nodes if result.data&.workspace
     end
 
@@ -307,7 +318,7 @@ class App < Sinatra::Base
       http.use_ssl = true
       
       request = Net::HTTP::Post.new(uri)
-      request['Authorization'] = "Bearer #{ENV['GITHUB_TOKEN']}"
+      request['Authorization'] = "Bearer #{session[:github_token]}"
       request['Content-Type'] = 'application/json'
       request.body = { query: github_query }.to_json
 
@@ -361,7 +372,7 @@ class App < Sinatra::Base
         GRAPHQL
 
         status_request = Net::HTTP::Post.new(uri)
-        status_request['Authorization'] = "Bearer #{ENV['GITHUB_TOKEN']}"
+        status_request['Authorization'] = "Bearer #{session[:github_token]}"
         status_request['Content-Type'] = 'application/json'
         status_request.body = { query: status_query }.to_json
 
@@ -375,7 +386,7 @@ class App < Sinatra::Base
 
           # Cache the results
           github_project = Github::Project.new(
-            token: ENV.fetch('GITHUB_TOKEN'), organization: github_info[:organization], number: github_info[:project_number]
+            token: session[:github_token], organization: github_info[:organization], number: github_info[:project_number]
           )
           @github_issues = github_project.issues.map(&:to_hash)
 
@@ -394,6 +405,22 @@ class App < Sinatra::Base
 
   get '/' do
     redirect '/connect'
+  end
+
+  post '/set-connection' do
+    content_type :json
+    
+    # Validate and set tokens in session
+    if params[:github_token].to_s.empty? || params[:zenhub_token].to_s.empty?
+      status 400
+      return {error: "Both GitHub and ZenHub tokens are required"}.to_json
+    end
+
+    session[:github_token] = params[:github_token]
+    session[:zenhub_token] = params[:zenhub_token]
+    
+    # Redirect to pipelines while preserving workspace_url and github_url parameters
+    redirect "/pipelines?workspace_url=#{URI.encode_www_form_component(params[:workspace_url])}&github_url=#{URI.encode_www_form_component(params[:github_url])}"
   end
 
   get '/connect' do

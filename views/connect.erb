@@ -9,7 +9,7 @@
 
   <div class="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
     <div class="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
-      <form class="space-y-6" method="GET" action="/pipelines">
+      <form class="space-y-6" method="POST" action="/set-connection">
         <div>
           <label for="workspace_url" class="block text-sm font-medium text-gray-700">ZenHub Workspace URL</label>
           <div class="mt-1">
@@ -29,6 +29,34 @@
                     class="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm">
           </div>
         </div>
+
+        <% unless ENV['ZENHUB_TOKEN'] %>
+          <div>
+            <label for="zenhub_token" class="block text-sm font-medium text-gray-700">ZenHub API Token</label>
+            <div class="mt-1">
+              <input id="zenhub_token" name="zenhub_token" type="password" required
+                      value="<%= params[:zenhub_token] %>"
+                      class="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm">
+            </div>
+            <p class="mt-2 text-sm text-gray-500">
+              <a href="https://app.zenhub.com/settings/tokens" target="_blank" class="text-indigo-600 hover:text-indigo-500">Generate a ZenHub token</a>
+            </p>
+          </div>
+        <% end %>
+
+        <% unless ENV['GITHUB_TOKEN'] %>
+          <div>
+            <label for="github_token" class="block text-sm font-medium text-gray-700">GitHub API Token</label>
+            <div class="mt-1">
+              <input id="github_token" name="github_token" type="password" required
+                      value="<%= params[:github_token] %>"
+                      class="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm">
+            </div>
+            <p class="mt-2 text-sm text-gray-500">
+              <a href="https://github.com/settings/tokens" target="_blank" class="text-indigo-600 hover:text-indigo-500">Generate a classic GitHub token</a> with <code>project</code> access
+            </p>
+          </div>
+        <% end %>
 
         <div>
           <button type="submit" class="flex w-full justify-center rounded-md border border-transparent bg-indigo-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
