@@ -181,6 +181,12 @@ class App < Sinatra::Base
   GRAPHQL
 
   helpers do
+    def require_tokens
+      if session[:github_token].nil? || session[:zenhub_token].nil?
+        redirect "/connect?#{request.query_string}"
+      end
+    end
+
     def extract_github_project_info(url)
       return nil unless url
       
@@ -435,6 +441,7 @@ class App < Sinatra::Base
   end
 
   get '/pipelines' do
+    require_tokens
     workspace_id = extract_workspace_id(params[:workspace_url])
     github_info = extract_github_project_info(params[:github_url])
     
@@ -458,6 +465,7 @@ class App < Sinatra::Base
   end
 
   get '/sprints' do
+    require_tokens
     workspace_id = extract_workspace_id(params[:workspace_url])
     github_info = extract_github_project_info(params[:github_url])
     
@@ -481,6 +489,7 @@ class App < Sinatra::Base
   end
 
   get '/review' do
+    require_tokens
     # Implement migration logic here
     steps = [
       { name: "Connect", number: "01", current: false, completed: true, url: "/connect?#{request.query_string}" },
