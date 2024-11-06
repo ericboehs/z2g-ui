@@ -47,11 +47,6 @@
         <div class="mb-6">
           <div class="flex justify-between items-center mb-2">
             <h3 class="text-lg font-medium text-gray-900">Sprint Mapping</h3>
-            <div id="selected-issues-json" class="fixed bottom-0 left-0 right-0 bg-gray-100 border-t border-gray-200 p-4 shadow-lg max-h-[30vh] overflow-y-auto hidden">
-              <div class="max-w-4xl mx-auto">
-                <h4 class="text-sm font-medium text-gray-900 mb-2">Selected Issues</h4>
-              </div>
-            </div>
             <a href="<%= params[:github_url] %>/settings/fields/<%= @github_sprint_field.dig('databaseId') %>" 
                target="_blank" 
                class="text-sm text-gray-600 hover:text-gray-900 flex items-center gap-1">
@@ -156,6 +151,7 @@
                                   <input type="checkbox" 
                                          checked
                                          class="issue-checkbox mr-2"
+                                         data-issue-url="<%= issue["htmlUrl"] %>"
                                          data-issue-number="<%= issue["number"] %>"
                                          data-sprint-name="<%= sprint["name"] %>"
                                          onclick="handleIssueCheckbox(this)">
@@ -195,18 +191,92 @@
       const row = selectElement.closest('tr');
       const contentRow = document.getElementById('content-' + row.querySelector('.sprint-checkbox').dataset.sprintName);
       const isNoneSelected = selectElement.value === '';
+      const sprintCheckbox = row.querySelector('.sprint-checkbox');
+      const isChecked = sprintCheckbox ? sprintCheckbox.checked : true;
 
-      if (isNoneSelected) {
+      // Check if all issues are unchecked or if "None" is selected
+      const allIssuesUnchecked = Array.from(contentRow.querySelectorAll('.issue-checkbox'))
+        .every(checkbox => !checkbox.checked);
+
+      // Cross out sprint name if all issues are unchecked OR if "None" is selected
+      if (allIssuesUnchecked || isNoneSelected) {
         row.querySelector('span.font-medium').classList.add('line-through', 'text-gray-400');
-        contentRow.querySelectorAll('.issue-row').forEach(issueRow => {
-          issueRow.classList.add('line-through', 'text-gray-400');
-        });
       } else {
         row.querySelector('span.font-medium').classList.remove('line-through', 'text-gray-400');
-        contentRow.querySelectorAll('.issue-row').forEach(issueRow => {
-          issueRow.classList.remove('line-through', 'text-gray-400');
-        });
       }
+
+      // Update individual issue styles based on their checkbox state AND sprint selection
+      contentRow.querySelectorAll('.issue-row').forEach(issueRow => {
+        if (!issueRow.querySelector('.issue-checkbox').checked || isNoneSelected) {
+          issueRow.classList.add('line-through', 'text-gray-400');
+        } else {
+          issueRow.classList.remove('line-through', 'text-gray-400');
+        }
+      });
+    }
+
+    function updateSprintCheckboxState(sprintName) {
+      const sprintCheckbox = document.querySelector(`.sprint-checkbox[data-sprint-name="${sprintName}"]`);
+      const contentRow = document.getElementById('content-' + sprintName);
+      const issueCheckboxes = Array.from(contentRow.querySelectorAll('.issue-checkbox'));
+      
+      const checkedCount = issueCheckboxes.filter(cb => cb.checked).length;
+      
+      if (checkedCount === 0) {
+        sprintCheckbox.checked = false;
+        sprintCheckbox.indeterminate = false;
+      } else if (checkedCount === issueCheckboxes.length) {
+        sprintCheckbox.checked = true;
+        sprintCheckbox.indeterminate = false;
+      } else {
+        sprintCheckbox.checked = false;
+        sprintCheckbox.indeterminate = true;
+      }
+    }
+
+    function handleSprintCheckbox(checkbox) {
+      const row = checkbox.closest('tr');
+      const select = row.querySelector('select');
+      const contentRow = document.getElementById('content-' + checkbox.dataset.sprintName);
+      
+      // Update all issue checkboxes under this sprint
+      const issueCheckboxes = contentRow.querySelectorAll('.issue-checkbox');
+      issueCheckboxes.forEach(issueCheckbox => {
+        issueCheckbox.checked = checkbox.checked;
+      });
+      
+      checkbox.indeterminate = false;
+      updateStyles(select);
+      updateIssueCount();
+    }
+
+    function generateJson() {
+      const sprintMappings = {};
+      document.querySelectorAll('.sprint-row').forEach(sprintRow => {
+        const select = sprintRow.querySelector('select');
+        const sprintCheckbox = sprintRow.querySelector('.sprint-checkbox');
+        const sprintName = sprintCheckbox.dataset.sprintName;
+        const selectedIteration = select.value;
+        
+        if (selectedIteration && sprintCheckbox.checked) {
+          const contentRow = document.getElementById('content-' + sprintName);
+          const selectedIssues = Array.from(contentRow.querySelectorAll('.issue-checkbox'))
+            .filter(checkbox => checkbox.checked)
+            .map(checkbox => checkbox.dataset.issueUrl);
+          
+          if (selectedIssues.length > 0) {
+            const selectedOption = select.options[select.selectedIndex];
+            sprintMappings[selectedIteration] = {
+              issues: selectedIssues,
+              sprintName: sprintName,
+              githubSprintTitle: selectedOption.text
+            };
+          }
+        }
+      });
+
+      // Store the mappings in sessionStorage
+      sessionStorage.setItem('sprintMappings', JSON.stringify(sprintMappings));
     }
 
     function updateIssueCount() {
@@ -217,11 +287,14 @@
         })
         .length;
       document.querySelector('p.next-step-info').textContent = `Selected Issues: ${issueCount}`;
+      generateJson();
     }
 
     document.querySelectorAll('.issue-checkbox').forEach(checkbox => {
       checkbox.checked = true;
       checkbox.addEventListener('change', () => {
+        const sprintName = checkbox.dataset.sprintName;
+        updateSprintCheckboxState(sprintName);
         updateIssueCount();
         updateStyles(checkbox.closest('tr').parentElement.parentElement.parentElement.parentElement.parentElement.previousElementSibling.querySelector('select'));
       });
@@ -235,5 +308,14 @@
     });
 
     updateIssueCount();
+
+    // Initialize styles, checkboxes states and JSON on page load
+    document.querySelectorAll('select').forEach(select => {
+      updateStyles(select);
+    });
+    document.querySelectorAll('.sprint-checkbox').forEach(checkbox => {
+      updateSprintCheckboxState(checkbox.dataset.sprintName);
+    });
+    generateJson();
   </script>
 </div>
