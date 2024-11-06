@@ -105,7 +105,6 @@
                           <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 pl-8">Number</th>
                           <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Title</th>
                           <th scope="col" class="px-2 py-3.5 text-left text-sm font-semibold text-gray-900">GitHub Status</th>
-                          <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">In Project?</th>
                         </tr>
                       </thead>
                       <tbody class="divide-y divide-gray-200 bg-white">
@@ -122,10 +121,7 @@
                               <%= issue["title"] %>
                             </td>
                             <td class="whitespace-normal px-3 py-4 text-sm">
-                              <%= github_status %>
-                            </td>
-                            <td class="whitespace-normal px-3 py-4 text-sm">
-                              <%= github_status ? "Yes" : "No" %>
+                              <%= github_status ? github_status : "Not in Project" %>
                             </td>
                           </tr>
                         <% end %>
