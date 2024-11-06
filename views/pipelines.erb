@@ -51,6 +51,10 @@
           Need to add a Status?
         </a>
       </div>
+      <div class="flex items-center mb-4">
+        <input type="checkbox" id="hide-migrated" class="mr-2" onclick="toggleMigratedIssues()" checked>
+        <label for="hide-migrated" class="text-sm text-gray-700">Hide migrated issues</label>
+      </div>
       <div class="bg-white shadow rounded-lg overflow-hidden">
         <table class="min-w-full divide-y divide-gray-300">
           <thead class="bg-gray-50">
@@ -80,7 +84,7 @@
                   <div class="flex items-center justify-between">
                     <select class="block w-full rounded-md border-0 py-1.5 pl-3 pr-10 text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-indigo-600 sm:text-sm/6" 
                           onclick="event.stopPropagation()"
-                          onchange="handleSprintSelect(this)">
+                          onchange="handleStatusSelect(this)">
                     <% 
                       max_distance = 3
                       closest_option, distance = @github_status_options.map { |option| [option, DidYouMean::Levenshtein.distance(pipeline["name"], option['name'])] }.min_by { |_, dist| dist }
@@ -100,19 +104,28 @@
                         <tr>
                           <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 pl-8">Number</th>
                           <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Title</th>
+                          <th scope="col" class="px-2 py-3.5 text-left text-sm font-semibold text-gray-900">GitHub Status</th>
+                          <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">In Project?</th>
                         </tr>
                       </thead>
                       <tbody class="divide-y divide-gray-200 bg-white">
                         <% @pipeline_data[pipeline["id"]][:issues].each do |issue| %>
                           <% github_issue = @github_issues.find { |gh_issue| gh_issue[:content][:url] == issue["htmlUrl"] } %>
-                          <tr class="issue-row">
+                          <% github_status = github_issue&.dig(:fieldValues, :nodes)&.find { |node| node.dig(:field, :name) == "Status" }&.dig(:name) %>
+                          <tr class="issue-row text-gray-700" data-github-status="<%= github_status %>">
                             <td class="whitespace-nowrap py-4 pl-8 pr-3 text-sm">
                               <a href="<%= issue["htmlUrl"] %>" target="_blank" class="text-blue-600 hover:text-blue-800">
                                 #<%= issue["number"] %>
                               </a>
                             </td>
-                            <td class="whitespace-normal px-3 py-4 text-sm text-gray-700">
+                            <td class="whitespace-normal px-3 py-4 text-sm">
                               <%= issue["title"] %>
+                            </td>
+                            <td class="whitespace-normal px-3 py-4 text-sm">
+                              <%= github_status %>
+                            </td>
+                            <td class="whitespace-normal px-3 py-4 text-sm">
+                              <%= github_status ? "Yes" : "No" %>
                             </td>
                           </tr>
                         <% end %>
@@ -127,5 +140,42 @@
       </div>
       <%= erb :_prev_next_buttons, locals: { steps: } %>
     </div>
+    <script>
+      function handleStatusSelect(selectElement) {
+        const pipelineRow = selectElement.closest('tr');
+        const selectedStatus = selectElement.selectedOptions[0].label;
+
+        pipelineRow.nextElementSibling.querySelectorAll('.issue-row').forEach(issueRow => {
+          const issueStatus = issueRow.getAttribute('data-github-status');
+          if (issueRow.querySelectorAll('td')[1].textContent.trim() === "Create QA Dashboards") debugger
+          if (
+            issueStatus === '' ||
+            (selectedStatus !== 'New' && issueStatus === 'New')
+          ) {
+            issueRow.dataset.needsMigration = true;
+            issueRow.classList.remove('line-through', 'text-gray-200');
+          } else {
+            issueRow.dataset.needsMigration = false;
+            issueRow.classList.add('line-through', 'text-gray-200',);
+          }
+        });
+        toggleMigratedIssues()
+      }
+
+      document.querySelectorAll('select').forEach(select => {
+        handleStatusSelect(select);
+      });
+
+      function toggleMigratedIssues() {
+        const hideMigrated = document.getElementById('hide-migrated').checked;
+        document.querySelectorAll('.issue-row').forEach(issueRow => {
+          if (issueRow.dataset.needsMigration == "false") {
+            issueRow.classList.add('hidden');
+          } else {
+            issueRow.classList.remove('hidden');
+          }
+        });
+      }
+    </script>
   <% end %>
 </div>

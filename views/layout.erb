@@ -5,7 +5,7 @@
   <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
   <script>
     window.addEventListener('load', function() {
-      document.querySelector('form').addEventListener('submit', function() {
+      document.querySelector('form')?.addEventListener('submit', function() {
         var submitButton = this.querySelector('button[data-disable-with]');
         if (submitButton) {
           submitButton.disabled = true;

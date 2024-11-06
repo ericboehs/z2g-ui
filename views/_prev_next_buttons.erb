@@ -10,11 +10,14 @@
     <%= previous_step[:name] %>
   </a>
   <% if next_step %>
-    <a href="<%= next_step[:url] %>" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700">
-      <%= next_step[:name] %>
-      <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-      </svg>
-    </a>
+    <div class="flex gap-6">
+      <p class="next-step-info text-sm text-gray-600 mt-2"></p>
+      <a href="<%= next_step[:url] %>" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700">
+        <%= next_step[:name] %>
+        <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+        </svg>
+      </a>
+    </div>
   <% end %>
 </div>

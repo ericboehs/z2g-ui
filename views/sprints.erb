@@ -87,6 +87,7 @@
                       <div class="flex items-center justify-between">
                         <div class="flex items-center">
                           <input type="checkbox" 
+                                 checked
                                  class="sprint-checkbox mr-2"
                                  data-sprint-name="<%= sprint["name"] %>"
                                  onclick="handleSprintCheckbox(this)">
@@ -153,6 +154,7 @@
                               <tr class="issue-row" data-sprint-name="<%= sprint["name"] %>">
                                 <td class="whitespace-nowrap py-4 pl-8 pr-3 text-sm">
                                   <input type="checkbox" 
+                                         checked
                                          class="issue-checkbox mr-2"
                                          data-issue-number="<%= issue["number"] %>"
                                          data-sprint-name="<%= sprint["name"] %>"
@@ -207,8 +209,31 @@
       }
     }
 
-    document.querySelectorAll('select').forEach(select => {
-      updateStyles(select);
+    function updateIssueCount() {
+      const issueCount = Array.from(document.querySelectorAll('.issue-checkbox'))
+        .filter(checkbox => {
+          const sprintRow = checkbox.closest('tr').parentElement.parentElement.parentElement.parentElement.parentElement.previousElementSibling;
+          return checkbox.checked && sprintRow.querySelector('select').value !== '';
+        })
+        .length;
+      document.querySelector('p.next-step-info').textContent = `Selected Issues: ${issueCount}`;
+    }
+
+    document.querySelectorAll('.issue-checkbox').forEach(checkbox => {
+      checkbox.checked = true;
+      checkbox.addEventListener('change', () => {
+        updateIssueCount();
+        updateStyles(checkbox.closest('tr').parentElement.parentElement.parentElement.parentElement.parentElement.previousElementSibling.querySelector('select'));
+      });
     });
+
+    document.querySelectorAll('select').forEach(select => {
+      select.addEventListener('change', () => {
+        updateIssueCount();
+        updateStyles(select);
+      });
+    });
+
+    updateIssueCount();
   </script>
 </div>
