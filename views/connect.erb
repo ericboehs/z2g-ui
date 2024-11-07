@@ -39,6 +39,7 @@
             <div class="mt-1">
               <input id="zenhub_token" name="zenhub_token" type="password" required
                       value="<%= session[:zenhub_token] %>"
+                      placeholder="zh_0123456789abcdef"
                       class="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm">
             </div>
             <p class="mt-2 text-sm text-gray-500">
@@ -53,6 +54,7 @@
             <div class="mt-1">
               <input id="github_token" name="github_token" type="password" required
                       value="<%= session[:github_token] %>"
+                      placeholder="ghp_0123456789abcdefghijklmnopqrstuvwxyz"
                       class="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm">
             </div>
             <p class="mt-2 text-sm text-gray-500">
