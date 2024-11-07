@@ -53,7 +53,7 @@
                 </div>
                 <div id="status-${pipelineId}" class="hidden ml-8 mt-2">
                   ${data.issues.map(issue => `
-                    <div class="text-sm py-1">
+                    <div class="text-sm py-1 flex items-center gap-2">
                       <a href="${issue.url}" target="_blank" class="text-blue-600 hover:text-blue-800">#${issue.number}</a>
                     </div>
                   `).join('')}
@@ -100,7 +100,6 @@
         html += '<div><h4 class="font-medium mb-2">Story Point Changes:</h4>';
         for (const [pointValue, data] of Object.entries(pointsMappings)) {
           if (data.issues && data.issues.length > 0) {
-            debugger
             html += `
               <div class="mb-4">
                 <div class="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded-md"
@@ -119,6 +118,7 @@
                   ${data.issues.map(issue => `
                     <div class="text-sm py-1">
                       <a href="${issue.url}" target="_blank" class="text-blue-600 hover:text-blue-800">#${issue.number}</a>
+                      <span class="size-5">${issue.zenhubPoints || 0} points</span>
                     </div>
                   `).join('')}
                 </div>
