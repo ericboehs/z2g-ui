@@ -27,6 +27,7 @@ require 'uri'
 require 'net/http'
 require 'json'
 require 'fileutils'
+require 'ostruct'
 require_relative 'github_project'
 
 class App < Sinatra::Base
@@ -210,17 +211,45 @@ class App < Sinatra::Base
     end
 
     def fetch_pipeline_issues(workspace_id, pipeline_id, repository_ids)
-      Client.query(
-        PipelineIssuesQuery,
-        variables: {
-          pipelineId: pipeline_id,
-          numberOfIssues: 100,
-          filters: {
-            matchType: "all",
-            repositoryIds: repository_ids
+      all_issues = []
+      has_next_page = true
+      cursor = nil
+
+      while has_next_page
+        result = Client.query(
+          PipelineIssuesQuery,
+          variables: {
+            pipelineId: pipeline_id,
+            numberOfIssues: 100,
+            issuesAfter: cursor,
+            filters: {
+              matchType: "all",
+              repositoryIds: repository_ids
+            },
           },
-        },
-        context: { token: session[:zenhub_token] }
+          context: { token: session[:zenhub_token] }
+        )
+
+        page_info = result.data.search_issues_by_pipeline.page_info
+        has_next_page = page_info.has_next_page
+        cursor = page_info.end_cursor
+
+        all_issues.concat(result.data.search_issues_by_pipeline.nodes)
+        
+        # Add a small delay to avoid rate limiting
+        sleep(0.5) if has_next_page
+      end
+
+      # Create a wrapper object that mimics the structure of a single page response
+      OpenStruct.new(
+        data: OpenStruct.new(
+          search_issues_by_pipeline: OpenStruct.new(
+            nodes: all_issues,
+            pipeline_counts: OpenStruct.new(
+              issues_count: all_issues.length
+            )
+          )
+        )
       )
     end
 
