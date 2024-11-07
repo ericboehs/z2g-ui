@@ -4,7 +4,7 @@
     <div class="sm:mx-auto sm:w-full sm:max-w-4xl">
       <div class="mb-6">
         <div class="flex justify-between items-center mb-6">
-          <h2 class="text-2xl font-bold">Map new Sprints for <%= @workspace["displayName"] %></h2>
+          <h2 class="text-2xl font-bold">Migrate Sprints for <%= @workspace["displayName"] %></h2>
           <div class="flex gap-4">
             <a href="/clear-cache" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
               <svg class="w-4 h-4 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -22,7 +22,7 @@
               </svg>
             </div>
             <div class="ml-3 flex-1 md:flex md:justify-between">
-              <p class="text-sm text-blue-700">Issues with a GitHub Sprint already set will not be updated. Issues do not need a Sprint set to be migrated.</p>
+              <p class="text-sm text-blue-700">Selected Issues will replace the <strong>Sprint</strong> value in your GitHub Project.</p>
             </div>
           </div>
         </div>

@@ -4,7 +4,7 @@
     <div class="sm:mx-auto sm:w-full sm:max-w-4xl">
       <div class="mb-6">
         <div class="flex justify-between items-center mb-6">
-          <h2 class="text-2xl font-bold">Migrate Status for <%= @workspace["displayName"] %></h2>
+          <h2 class="text-2xl font-bold">Migrate Points for <%= @workspace["displayName"] %></h2>
           <div class="flex gap-4">
             <a href="/clear-cache" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
               <svg class="w-4 h-4 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -22,7 +22,7 @@
               </svg>
             </div>
             <div class="ml-3 flex-1 md:flex md:justify-between">
-              <p class="text-sm text-blue-700">Selected Issues will replace the <strong>Status</strong> value in your GitHub Project.</p>
+              <p class="text-sm text-blue-700">Selected Issues will replace the <strong>Points</strong> value in your GitHub Project.</p>
             </div>
           </div>
         </div>
@@ -60,7 +60,6 @@
           <thead class="bg-gray-50">
             <tr>
               <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">ZenHub Pipeline</th>
-              <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">GitHub Status</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-200">
@@ -74,32 +73,14 @@
                              class="pipeline-checkbox mr-2"
                              data-pipeline-name="<%= pipeline["name"] %>"
                              data-pipeline-id="<%= pipeline["id"] %>"
-                             onclick="handlePipelineCheckbox(this); event.stopPropagation()">
+                             onclick="event.stopPropagation(); handlePipelineCheckbox(this)">
                       <svg id="arrow-<%= pipeline["id"] %>" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 transition-transform duration-200 mr-2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
                       </svg>
                       <span class="font-medium text-gray-900"><%= pipeline["name"] %></span>
                       <span class="issue-count text-gray-500 ml-2">(<%= @pipeline_data[pipeline["id"]][:count] %> issues selected)</span>
                     </div>
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 text-gray-400 mr-16">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
-                    </svg>
                   </div>
-                </td>
-                <td class="whitespace-nowrap px-3 py-4 text-sm">
-                  <div class="flex items-center justify-between">
-                    <select class="block w-full rounded-md border-0 py-1.5 pl-3 pr-10 text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-indigo-600 sm:text-sm/6" 
-                          onclick="event.stopPropagation()"
-                          onchange="handleStatusSelect(this)">
-                    <% 
-                      max_distance = 3
-                      closest_option, distance = @github_status_options.map { |option| [option, DidYouMean::Levenshtein.distance(pipeline["name"], option['name'])] }.min_by { |_, dist| dist }
-                      closest_option = nil if distance > max_distance
-                    %>
-                    <% @github_status_options&.each do |option| %>
-                      <option value="<%= option['id'] %>" <%= 'selected' if option == closest_option %>><%= option['name'] %></option>
-                    <% end %>
-                  </select>
                 </td>
               </tr>
               <tr id="content-<%= pipeline["id"] %>" class="hidden">
@@ -110,19 +91,24 @@
                         <tr>
                           <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 pl-8">Number</th>
                           <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Title</th>
-                          <th scope="col" class="px-2 py-3.5 text-left text-sm font-semibold text-gray-900">GitHub Status</th>
+                          <th scope="col" class="px-2 py-3.5 text-left text-sm font-semibold text-gray-900">ZenHub Points</th>
+                          <th scope="col" class="px-2 py-3.5 text-left text-sm font-semibold text-gray-900">GitHub Points</th>
                         </tr>
                       </thead>
                       <tbody class="divide-y divide-gray-200 bg-white">
                         <% @pipeline_data[pipeline["id"]][:issues].each do |issue| %>
                           <% github_issue = @github_issues.find { |gh_issue| gh_issue[:content][:url] == issue["htmlUrl"] } %>
                           <% github_status = github_issue&.dig(:fieldValues, :nodes)&.find { |node| node.dig(:field, :name) == "Status" }&.dig(:name) %>
-                          <tr class="issue-row text-gray-700" 
+                          <% github_points = github_issue&.dig(:fieldValues, :nodes)&.find { |node| node.dig(:field, :name) == "Points" }&.dig(:number)&.round %>
+                          <% zenhub_points = issue.dig("estimate", "value")&.round %>
+                          <tr class="issue-row text-gray-700 <%= 'line-through text-gray-200' if github_points %>" 
                               data-github-status="<%= github_status %>"
-                              data-sprint-title="<%= issue['sprintTitle'] %>">
+                              data-sprint-title="<%= issue['sprintTitle'] %>"
+                              data-github-points="<%= github_points %>"
+                              data-zenhub-points="<%= zenhub_points %>">
                             <td class="whitespace-nowrap py-4 pl-8 pr-3 text-sm">
                               <input type="checkbox" 
-                                     checked
+                                     <%= 'checked' unless github_points %>
                                      class="issue-checkbox mr-2"
                                      data-issue-url="<%= issue["htmlUrl"] %>"
                                      data-issue-number="<%= issue["number"] %>"
@@ -135,8 +121,11 @@
                             <td class="whitespace-normal px-3 py-4 text-sm">
                               <%= issue["title"] %>
                             </td>
-                            <td class="whitespace-normal px-3 py-4 text-sm">
-                              <%= github_status ? github_status : "Not in Project" %>
+                            <td class="whitespace-nowrap px-2 py-4 text-sm">
+                              <%= zenhub_points ? "#{zenhub_points} #{zenhub_points == 1 ? 'point' : 'points'}" : "-" %>
+                            </td>
+                            <td class="whitespace-nowrap px-2 py-4 text-sm">
+                              <%= github_points ? "#{github_points} #{github_points == 1 ? 'point' : 'points'}" : "-" %>
                             </td>
                           </tr>
                         <% end %>
@@ -163,16 +152,23 @@
           const issueRow = issueCheckbox.closest('.issue-row');
           if (checkbox.checked) {
             issueRow.classList.remove('line-through', 'text-gray-200');
+            issueRow.classList.remove('hidden');
           } else {
             issueRow.classList.add('line-through', 'text-gray-200');
+            // If hide unselected is checked, hide this row after 2 seconds
+            if (document.getElementById('hide-migrated').checked) {
+              setTimeout(() => {
+                issueRow.classList.add('hidden');
+              }, 2000);
+            }
           }
         });
         
         checkbox.indeterminate = false;
         updatePipelineCheckboxState(checkbox.dataset.pipelineId);
+        updatePipelineIssueCounts();
         generateJson();
         updateIssueCount();
-        updatePipelineIssueCounts();
       }
 
       function updatePipelineCheckboxState(pipelineId) {
@@ -244,13 +240,13 @@
       }
 
       function updateIssueCount() {
-        const issueCount = Array.from(document.querySelectorAll('.issue-checkbox'))
-          .filter(checkbox => {
-            const pipelineRow = checkbox.closest('tr').parentElement.parentElement.parentElement.parentElement.parentElement.previousElementSibling;
-            return checkbox.checked && pipelineRow.querySelector('select').value !== '';
-          })
-          .length;
-        document.querySelector('p.next-step-info').textContent = `Selected Issues: ${issueCount}`;
+        const totalIssues = document.querySelectorAll('.issue-checkbox').length;
+        const checkedIssues = Array.from(document.querySelectorAll('.issue-checkbox'))
+          .filter(checkbox => checkbox.checked).length;
+        const nextStepInfo = document.querySelector('p.next-step-info');
+        if (nextStepInfo) {
+          nextStepInfo.textContent = `Selected Issues: ${checkedIssues}/${totalIssues}`;
+        }
       }
 
       // Initialize checkbox event listeners
@@ -258,78 +254,81 @@
         checkbox.addEventListener('change', () => {
           const pipelineId = checkbox.dataset.pipelineId;
           const issueRow = checkbox.closest('.issue-row');
+          const pipelineRow = issueRow.closest('table').closest('tr').previousElementSibling;
+          const issueCountElement = pipelineRow.querySelector('.issue-count');
           
           // Toggle line-through based on checkbox state
           if (checkbox.checked) {
             issueRow.classList.remove('line-through', 'text-gray-200');
+            issueRow.classList.remove('hidden');
           } else {
             issueRow.classList.add('line-through', 'text-gray-200');
+            // If hide unselected is checked, hide this row after 2 seconds
+            if (document.getElementById('hide-migrated').checked) {
+              setTimeout(() => {
+                issueRow.classList.add('hidden');
+                updatePipelineIssueCounts();
+              }, 2000);
+            }
           }
+          
+          // Update the count for this specific pipeline
+          const allIssuesInPipeline = issueRow.closest('tbody').querySelectorAll('.issue-checkbox');
+          const checkedIssuesInPipeline = Array.from(allIssuesInPipeline).filter(cb => cb.checked).length;
+          const totalIssuesInPipeline = allIssuesInPipeline.length;
+          issueCountElement.textContent = `(${checkedIssuesInPipeline}/${totalIssuesInPipeline} issues)`;
           
           updatePipelineCheckboxState(pipelineId);
           generateJson();
           updateIssueCount();
-          updatePipelineIssueCounts();
         });
       });
 
-      function handleStatusSelect(selectElement) {
-        const pipelineRow = selectElement.closest('tr');
-        const selectedStatus = selectElement.selectedOptions[0].label;
-
-        pipelineRow.nextElementSibling.querySelectorAll('.issue-row').forEach(issueRow => {
-          const issueStatus = issueRow.getAttribute('data-github-status');
-          const needsMigration = issueStatus === '' || issueStatus === 'Not in Project' || (selectedStatus !== 'New' && issueStatus === 'New');
-          issueRow.dataset.needsMigration = needsMigration;
-          
-          const checkbox = issueRow.querySelector('.issue-checkbox');
-          if (needsMigration) {
-            issueRow.classList.remove('line-through', 'text-gray-200');
-            if (checkbox) checkbox.checked = true;
-          } else {
-            issueRow.classList.add('line-through', 'text-gray-200');
-            if (checkbox) checkbox.checked = false;
-          }
-        });
-        toggleMigratedIssues()
-        updatePipelineCheckboxState(pipelineRow.querySelector('.pipeline-checkbox').dataset.pipelineId);
-        generateJson();
-      }
 
       function updatePipelineIssueCounts() {
         document.querySelectorAll('.issue-count').forEach(issueCountElement => {
           const pipelineRow = issueCountElement.closest('tr');
           const contentRow = pipelineRow.nextElementSibling;
-          const checkedVisibleIssues = Array.from(contentRow.querySelectorAll('.issue-row:not(.hidden) .issue-checkbox'))
-            .filter(checkbox => checkbox.checked).length;
-          issueCountElement.textContent = `(${checkedVisibleIssues} issues selected)`;
+          const allIssues = contentRow.querySelectorAll('.issue-checkbox');
+          const checkedIssues = Array.from(allIssues).filter(checkbox => checkbox.checked).length;
+          const totalIssues = allIssues.length;
+          issueCountElement.textContent = `(${checkedIssues}/${totalIssues} issues)`;
         });
       }
 
       // Initialize the page
-      document.querySelectorAll('select').forEach(select => {
-        handleStatusSelect(select);
-      });
+      function initializePage() {
+        // Update initial pipeline counts
+        document.querySelectorAll('.pipeline-checkbox').forEach(pipelineCheckbox => {
+          const pipelineId = pipelineCheckbox.dataset.pipelineId;
+          const contentRow = document.getElementById('content-' + pipelineId);
+          const allIssues = contentRow.querySelectorAll('.issue-checkbox');
+          const checkedIssues = Array.from(allIssues).filter(cb => cb.checked).length;
+          
+          // Update count display
+          const issueCountElement = pipelineCheckbox.closest('tr').querySelector('.issue-count');
+          const totalIssues = allIssues.length;
+          issueCountElement.textContent = `(${checkedIssues}/${totalIssues} issues)`;
+          
+          // Update pipeline checkbox state
+          if (checkedIssues === 0) {
+            pipelineCheckbox.checked = false;
+          }
+        });
 
-      // Uncheck pipelines with no checked issues
-      document.querySelectorAll('.pipeline-checkbox').forEach(pipelineCheckbox => {
-        const pipelineId = pipelineCheckbox.dataset.pipelineId;
-        const contentRow = document.getElementById('content-' + pipelineId);
-        const checkedIssues = contentRow.querySelectorAll('.issue-checkbox:checked').length;
-        if (checkedIssues === 0) {
-          pipelineCheckbox.checked = false;
-        }
-      });
+        generateJson();
+        updateIssueCount();
+      }
 
-      generateJson();
-      updateIssueCount();
-      updatePipelineIssueCounts();
+      // Call initialization
+      initializePage();
 
       function toggleMigratedIssues() {
-        const hideMigrated = document.getElementById('hide-migrated').checked;
+        const hideUnselected = document.getElementById('hide-migrated').checked;
         document.querySelectorAll('.issue-row').forEach(issueRow => {
-          if (issueRow.dataset.needsMigration === "false") {
-            issueRow.classList.toggle('hidden', hideMigrated);
+          const checkbox = issueRow.querySelector('.issue-checkbox');
+          if (!checkbox.checked) {
+            issueRow.classList.toggle('hidden', hideUnselected);
           }
         });
         updatePipelineIssueCounts();

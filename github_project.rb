@@ -101,6 +101,7 @@ module Github
                         field {
                           ... on ProjectV2FieldCommon {
                             name
+                            dataType
                           }
                         }
                       }

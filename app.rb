@@ -462,8 +462,9 @@ class App < Sinatra::Base
     steps = [
       { name: "Connect", number: "01", current: true, completed: false, url: "/connect" },
       { name: "Pipelines", number: "02", current: false, completed: false, url: "/pipelines?#{request.query_string}" },
-      { name: "Sprints", number: "03", current: false, completed: false, url: "/sprints?#{request.query_string}" },
-      { name: "Review", number: "04", current: false, completed: false, url: "/review?#{request.query_string}" }
+      { name: "Points", number: "03", current: false, completed: false, url: "/points?#{request.query_string}" },
+      { name: "Sprints", number: "04", current: false, completed: false, url: "/sprints?#{request.query_string}" },
+      { name: "Review", number: "05", current: false, completed: false, url: "/review?#{request.query_string}" }
     ]
 
     erb :connect, locals: { steps: steps }
@@ -486,11 +487,37 @@ class App < Sinatra::Base
     steps = [
       { name: "Connect", number: "01", current: false, completed: true, url: "/connect?#{request.query_string}" },
       { name: "Pipelines", number: "02", current: true, completed: false, url: "/pipelines?#{request.query_string}" },
-      { name: "Sprints", number: "03", current: false, completed: false, url: "/sprints?#{request.query_string}" },
-      { name: "Review", number: "04", current: false, completed: false, url: "/review?#{request.query_string}" }
+      { name: "Points", number: "03", current: false, completed: false, url: "/points?#{request.query_string}" },
+      { name: "Sprints", number: "04", current: false, completed: false, url: "/sprints?#{request.query_string}" },
+      { name: "Review", number: "05", current: false, completed: false, url: "/review?#{request.query_string}" }
     ]
 
     erb :pipelines, locals: { steps: steps }
+  end
+
+  get '/points' do
+    require_tokens
+    workspace_id = extract_workspace_id(params[:workspace_url])
+    github_info = extract_github_project_info(params[:github_url])
+    
+    if workspace_id.nil? || github_info.nil?
+      status 400
+      return "Please provide valid ZenHub workspace and GitHub project URLs."
+    end
+
+    query_zenhub_workspace(workspace_id)
+    query_github_project(github_info)
+    App.save_caches
+
+    steps = [
+      { name: "Connect", number: "01", current: false, completed: true, url: "/connect?#{request.query_string}" },
+      { name: "Pipelines", number: "02", current: false, completed: true, url: "/pipelines?#{request.query_string}" },
+      { name: "Points", number: "03", current: true, completed: false, url: "/points?#{request.query_string}" },
+      { name: "Sprints", number: "04", current: false, completed: false, url: "/sprints?#{request.query_string}" },
+      { name: "Review", number: "05", current: false, completed: false, url: "/review?#{request.query_string}" }
+    ]
+
+    erb :points, locals: { steps: steps }
   end
 
   get '/sprints' do
@@ -510,8 +537,9 @@ class App < Sinatra::Base
     steps = [
       { name: "Connect", number: "01", current: false, completed: true, url: "/connect?#{request.query_string}" },
       { name: "Pipelines", number: "02", current: false, completed: true, url: "/pipelines?#{request.query_string}" },
-      { name: "Sprints", number: "03", current: true, completed: false, url: "/sprints?#{request.query_string}" },
-      { name: "Review", number: "04", current: false, completed: false, url: "/review?#{request.query_string}" }
+      { name: "Points", number: "03", current: false, completed: true, url: "/points?#{request.query_string}" },
+      { name: "Sprints", number: "04", current: true, completed: false, url: "/sprints?#{request.query_string}" },
+      { name: "Review", number: "05", current: false, completed: false, url: "/review?#{request.query_string}" }
     ]
 
     erb :sprints, locals: { steps: steps }
@@ -535,8 +563,9 @@ class App < Sinatra::Base
     steps = [
       { name: "Connect", number: "01", current: false, completed: true, url: "/connect?#{request.query_string}" },
       { name: "Pipelines", number: "02", current: false, completed: true, url: "/pipelines?#{request.query_string}" },
-      { name: "Sprints", number: "03", current: false, completed: true, url: "/sprints?#{request.query_string}" },
-      { name: "Review", number: "04", current: true, completed: false, url: "/review?#{request.query_string}" }
+      { name: "Points", number: "03", current: false, completed: true, url: "/points?#{request.query_string}" },
+      { name: "Sprints", number: "04", current: false, completed: true, url: "/sprints?#{request.query_string}" },
+      { name: "Review", number: "05", current: true, completed: false, url: "/review?#{request.query_string}" }
     ]
 
     erb :review, locals: { steps: steps }
