@@ -85,13 +85,14 @@
                                  checked
                                  class="sprint-checkbox mr-2"
                                  data-sprint-name="<%= sprint["name"] %>"
+                                 data-sprint-id="<%= sprint["id"] %>"
                                  onclick="handleSprintCheckbox(this)">
-                          <div class="cursor-pointer flex items-center" onclick="toggleAccordion('<%= sprint["name"] %>')">
-                            <svg id="arrow-<%= sprint["name"] %>" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 transition-transform duration-200 mr-2">
+                          <div class="cursor-pointer flex items-center" onclick="toggleAccordion('<%= sprint["id"] %>')">
+                            <svg id="arrow-<%= sprint["id"] %>" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 transition-transform duration-200 mr-2">
                               <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
                             </svg>
                             <span class="font-medium text-gray-900"><%= sprint["name"] %></span>
-                            <span class="text-gray-500 ml-2">(<%= sprint_issues.length %> issues)</span>
+                            <span class="text-gray-500 ml-2 sprint-issue-count">(<%= sprint_issues.length %> issues)</span>
                           </div>
                         </div>
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4">
@@ -133,7 +134,7 @@
                       </select>
                     </td>
                   </tr>
-                  <tr id="content-<%= sprint["name"] %>" class="hidden">
+                  <tr id="content-<%= sprint["id"] %>" class="hidden">
                     <td colspan="2" class="px-0 border-t border-gray-200">
                       <div class="overflow-x-auto">
                         <table class="min-w-full divide-y divide-gray-300">
@@ -146,15 +147,14 @@
                           </thead>
                           <tbody class="divide-y divide-gray-200 bg-white pl-8">
                             <% sprint_issues.each do |issue| %>
-                              <tr class="issue-row" data-sprint-name="<%= sprint["name"] %>">
+                              <tr class="issue-row" data-sprint-id="<%= sprint["id"] %>" data-sprint-name="<%= sprint["name"] %>">
                                 <td class="whitespace-nowrap py-4 pl-8 pr-3 text-sm">
                                   <input type="checkbox" 
                                          checked
                                          class="issue-checkbox mr-2"
                                          data-issue-url="<%= issue["htmlUrl"] %>"
                                          data-issue-number="<%= issue["number"] %>"
-                                         data-sprint-name="<%= sprint["name"] %>"
-                                         onclick="handleIssueCheckbox(this)">
+                                         data-sprint-name="<%= sprint["name"] %>">
                                   <a href="<%= issue["htmlUrl"] %>" target="_blank" class="text-blue-600 hover:text-blue-800">
                                     #<%= issue["number"] %>
                                   </a>
@@ -189,7 +189,7 @@
   <script>
     function updateStyles(selectElement) {
       const row = selectElement.closest('tr');
-      const contentRow = document.getElementById('content-' + row.querySelector('.sprint-checkbox').dataset.sprintName);
+      const contentRow = document.getElementById('content-' + row.querySelector('.sprint-checkbox').dataset.sprintId);
       const isNoneSelected = selectElement.value === '';
       const sprintCheckbox = row.querySelector('.sprint-checkbox');
       const isChecked = sprintCheckbox ? sprintCheckbox.checked : true;
@@ -213,11 +213,13 @@
           issueRow.classList.remove('line-through', 'text-gray-400');
         }
       });
+      
+      updateSprintIssueCounts();
     }
 
-    function updateSprintCheckboxState(sprintName) {
-      const sprintCheckbox = document.querySelector(`.sprint-checkbox[data-sprint-name="${sprintName}"]`);
-      const contentRow = document.getElementById('content-' + sprintName);
+    function updateSprintCheckboxState(sprintId) {
+      const sprintCheckbox = document.querySelector(`.sprint-checkbox[data-sprint-id="${sprintId}"]`);
+      const contentRow = document.getElementById('content-' + sprintId);
       const issueCheckboxes = Array.from(contentRow.querySelectorAll('.issue-checkbox'));
       
       const checkedCount = issueCheckboxes.filter(cb => cb.checked).length;
@@ -237,7 +239,7 @@
     function handleSprintCheckbox(checkbox) {
       const row = checkbox.closest('tr');
       const select = row.querySelector('select');
-      const contentRow = document.getElementById('content-' + checkbox.dataset.sprintName);
+      const contentRow = document.getElementById('content-' + checkbox.dataset.sprintId);
       
       // Update all issue checkboxes under this sprint
       const issueCheckboxes = contentRow.querySelectorAll('.issue-checkbox');
@@ -251,32 +253,67 @@
     }
 
     function generateJson() {
-      const sprintMappings = {};
+      // Get existing mappings or initialize empty object
+      const sprintMappings = JSON.parse(sessionStorage.getItem('sprintMappings') || '{}');
+      const newMappings = {};
+      
       document.querySelectorAll('.sprint-row').forEach(sprintRow => {
         const select = sprintRow.querySelector('select');
         const sprintCheckbox = sprintRow.querySelector('.sprint-checkbox');
-        const sprintName = sprintCheckbox.dataset.sprintName;
         const selectedIteration = select.value;
         
-        if (selectedIteration && sprintCheckbox.checked) {
-          const contentRow = document.getElementById('content-' + sprintName);
+        if (selectedIteration && (sprintCheckbox.checked || sprintCheckbox.indeterminate)) {
+          // Get the specific sprint's data from its checkbox
+          const thisSprintId = sprintCheckbox.dataset.sprintId;
+          const thisSprintName = sprintCheckbox.dataset.sprintName;
+          
+          const contentRow = document.getElementById('content-' + thisSprintId);
           const selectedIssues = Array.from(contentRow.querySelectorAll('.issue-checkbox'))
             .filter(checkbox => checkbox.checked)
             .map(checkbox => checkbox.dataset.issueUrl);
           
           if (selectedIssues.length > 0) {
             const selectedOption = select.options[select.selectedIndex];
-            sprintMappings[selectedIteration] = {
-              issues: selectedIssues,
-              sprintName: sprintName,
-              githubSprintTitle: selectedOption.text
-            };
+            
+            // If there's an existing mapping for this iteration
+            if (sprintMappings[selectedIteration]) {
+              // Only update if this is the same sprint
+              if (sprintMappings[selectedIteration].sprintId === thisSprintId) {
+                newMappings[selectedIteration] = {
+                  issues: selectedIssues,
+                  sprintId: thisSprintId,
+                  sprintName: thisSprintName,
+                  githubSprintTitle: selectedOption.text
+                };
+              } else {
+                // Keep the existing mapping if it's a different sprint
+                newMappings[selectedIteration] = sprintMappings[selectedIteration];
+              }
+            } else {
+              // Create new mapping
+              newMappings[selectedIteration] = {
+                issues: selectedIssues,
+                sprintId: thisSprintId,
+                sprintName: thisSprintName,
+                githubSprintTitle: selectedOption.text
+              };
+            }
           }
         }
       });
 
-      // Store the mappings in sessionStorage
-      sessionStorage.setItem('sprintMappings', JSON.stringify(sprintMappings));
+      // Store the updated mappings in sessionStorage
+      sessionStorage.setItem('sprintMappings', JSON.stringify(newMappings));
+    }
+
+    function updateSprintIssueCounts() {
+      document.querySelectorAll('.sprint-row').forEach(sprintRow => {
+        const sprintId = sprintRow.querySelector('.sprint-checkbox').dataset.sprintId;
+        const contentRow = document.getElementById('content-' + sprintId);
+        const visibleIssues = Array.from(contentRow.querySelectorAll('.issue-row'))
+          .filter(row => !row.classList.contains('line-through')).length;
+        sprintRow.querySelector('.sprint-issue-count').textContent = `(${visibleIssues} issues)`;
+      });
     }
 
     function updateIssueCount() {
@@ -288,15 +325,20 @@
         .length;
       document.querySelector('p.next-step-info').textContent = `Selected Issues: ${issueCount}`;
       generateJson();
+      updateSprintIssueCounts();
     }
 
     document.querySelectorAll('.issue-checkbox').forEach(checkbox => {
       checkbox.checked = true;
       checkbox.addEventListener('change', () => {
-        const sprintName = checkbox.dataset.sprintName;
-        updateSprintCheckboxState(sprintName);
+        const issueRow = checkbox.closest('tr[data-sprint-id]');
+        const sprintId = issueRow.dataset.sprintId;
+        const sprintRow = document.querySelector(`.sprint-checkbox[data-sprint-id="${sprintId}"]`).closest('tr');
+        const select = sprintRow.querySelector('select');
+        
+        updateSprintCheckboxState(sprintId);
         updateIssueCount();
-        updateStyles(checkbox.closest('tr').parentElement.parentElement.parentElement.parentElement.parentElement.previousElementSibling.querySelector('select'));
+        updateStyles(select);
       });
     });
 
@@ -314,7 +356,7 @@
       updateStyles(select);
     });
     document.querySelectorAll('.sprint-checkbox').forEach(checkbox => {
-      updateSprintCheckboxState(checkbox.dataset.sprintName);
+      updateSprintCheckboxState(checkbox.dataset.sprintId);
     });
     generateJson();
   </script>
