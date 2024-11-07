@@ -42,19 +42,20 @@
             GitHub Project
           </a>
         </div>
+        <a href="<%= params[:github_url] %>/settings/fields/<%= @github_sprint_field.dig('databaseId') %>" 
+           target="_blank" 
+           class="text-sm text-gray-600 hover:text-gray-900 flex items-center gap-1">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M10 6V8H5V19H16V14H18V20C18 20.5523 17.5523 21 17 21H4C3.44772 21 3 20.5523 3 20V7C3 6.44772 3 6 4 6H10ZM21 3V11H19L18.9999 6.413L11.2071 14.2071L9.79289 12.7929L17.5849 5H13V3H21Z"/>
+          </svg>
+          Need to add a Sprint?
+        </a>
       </div>
       <% if @sprints.any? %>
         <div class="mb-6">
-          <div class="flex justify-between items-center mb-2">
-            <h3 class="text-lg font-medium text-gray-900">Sprint Mapping</h3>
-            <a href="<%= params[:github_url] %>/settings/fields/<%= @github_sprint_field.dig('databaseId') %>" 
-               target="_blank" 
-               class="text-sm text-gray-600 hover:text-gray-900 flex items-center gap-1">
-              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M10 6V8H5V19H16V14H18V20C18 20.5523 17.5523 21 17 21H4C3.44772 21 3 20.5523 3 20V7C3 6.44772 3 6 4 6H10ZM21 3V11H19L18.9999 6.413L11.2071 14.2071L9.79289 12.7929L17.5849 5H13V3H21Z"/>
-              </svg>
-              Need to add a Sprint?
-            </a>
+          <div class="flex items-center mb-4">
+            <input type="checkbox" id="hide-unselected" class="mr-2" onclick="toggleUnselectedIssues()">
+            <label for="hide-unselected" class="text-sm text-gray-700">Only show selected Issues</label>
           </div>
           <div class="overflow-hidden shadow ring-1 ring-black ring-opacity-5 sm:rounded-lg">
             <table class="min-w-full divide-y divide-gray-300">
@@ -103,7 +104,7 @@
                     <td class="whitespace-nowrap px-3 py-4 text-sm text-right">
                       <select class="block w-full max-w-xs ml-auto rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6" 
                               onclick="event.stopPropagation()"
-                              onchange="handleSprintSelect(this); updateStyles(this)">
+                              onchange="updateStyles(this)">
                         <option value="">None</option>
                         <% 
                           all_iterations = (@github_sprint_field&.dig('configuration', 'iterations') || []) +
@@ -127,7 +128,7 @@
                             end_date = start_date + iteration['duration'].to_i - 1
                             date_range = "#{start_date.strftime('%b %-d')} - #{end_date.strftime('%b %-d, %Y')}"
                           %>
-                          <option value="<%= iteration['id'] %>" <%= 'selected' if matching_sprint %>>
+                          <option value="<%= iteration['id'] %>" <%= 'selected' if matching_sprint %> data-sprint-name="<%= iteration['title'] %>">
                             <%= iteration['title'] %> (<%= date_range %>)
                           </option>
                         <% end %>
@@ -142,7 +143,7 @@
                             <tr>
                               <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 pl-8">Issue</th>
                               <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Title</th>
-                              <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Points</th>
+                              <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">GitHub Sprint</th>
                             </tr>
                           </thead>
                           <tbody class="divide-y divide-gray-200 bg-white pl-8">
@@ -159,15 +160,31 @@
                                     #<%= issue["number"] %>
                                   </a>
                                 </td>
-                                <td class="whitespace-normal px-3 py-4 text-sm text-gray-700">
-                                  <%= issue["title"] %>
+                                <td class="whitespace-normal px-3 py-4 text-sm text-gray-700 max-w-xs">
+                                  <div class="truncate">
+                                    <%= issue["title"] %>
+                                  </div>
                                 </td>
-                                <td class="whitespace-nowrap px-3 py-4 text-sm">
-                                  <% if issue["estimate"]&.dig("value") %>
-                                    <span class="inline-flex items-center rounded-md bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600">
-                                      <%= issue["estimate"]["value"].round %> points
+                                <td class="whitespace-nowrap px-3 py-4 text-sm status-cell min-w-[200px]">
+                                  <% github_issue = @github_issues.find { |gh_issue| gh_issue[:content][:url] == issue["htmlUrl"] } %>
+                                  <% github_sprint = github_issue&.dig(:fieldValues, :nodes)&.find { |node| node.dig(:field, :name) == "Sprint" }&.dig(:title) %>
+                                  <div class="flex items-center">
+                                    <span class="current-status">
+                                      <% if github_sprint %>
+                                        <span class="inline-flex items-center rounded-md bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 line-through">
+                                          <%= github_sprint %>
+                                        </span>
+                                      <% else %>
+                                        <span class="line-through">Not Set</span>
+                                      <% end %>
                                     </span>
-                                  <% end %>
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 text-gray-400 mx-1 hidden new-arrow">
+                                      <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
+                                    </svg>
+                                    <span class="new-status hidden text-indigo-600">
+                                      <span class="inline-flex items-center rounded-md bg-gray-100 px-2 py-1 text-xs font-medium"></span>
+                                    </span>
+                                  </div>
                                 </td>
                               </tr>
                             <% end %>
@@ -193,6 +210,7 @@
       const isNoneSelected = selectElement.value === '';
       const sprintCheckbox = row.querySelector('.sprint-checkbox');
       const isChecked = sprintCheckbox ? sprintCheckbox.checked : true;
+      const selectedSprintName = selectElement.selectedOptions[0]?.dataset?.sprintName;
 
       // Check if all issues are unchecked or if "None" is selected
       const allIssuesUnchecked = Array.from(contentRow.querySelectorAll('.issue-checkbox'))
@@ -205,12 +223,26 @@
         row.querySelector('span.font-medium').classList.remove('line-through', 'text-gray-400');
       }
 
-      // Update individual issue styles based on their checkbox state AND sprint selection
+      // Update individual issue styles and transitions based on checkbox state AND sprint selection
       contentRow.querySelectorAll('.issue-row').forEach(issueRow => {
-        if (!issueRow.querySelector('.issue-checkbox').checked || isNoneSelected) {
+        const checkbox = issueRow.querySelector('.issue-checkbox');
+        const currentStatus = issueRow.querySelector('.current-status');
+        const newStatus = issueRow.querySelector('.new-status');
+        const arrow = issueRow.querySelector('.new-arrow');
+
+        if (!checkbox.checked || isNoneSelected) {
           issueRow.classList.add('line-through', 'text-gray-400');
+          currentStatus.classList.remove('line-through', 'text-gray-400');
+          arrow.classList.add('hidden');
+          newStatus.classList.add('hidden');
         } else {
           issueRow.classList.remove('line-through', 'text-gray-400');
+          if (selectedSprintName) {
+            currentStatus.classList.add('line-through', 'text-gray-400');
+            arrow.classList.remove('hidden');
+            newStatus.classList.remove('hidden');
+            newStatus.querySelector('span').textContent = selectedSprintName;
+          }
         }
       });
       
@@ -275,29 +307,17 @@
           if (selectedIssues.length > 0) {
             const selectedOption = select.options[select.selectedIndex];
             
-            // If there's an existing mapping for this iteration
-            if (sprintMappings[selectedIteration]) {
-              // Only update if this is the same sprint
-              if (sprintMappings[selectedIteration].sprintId === thisSprintId) {
-                newMappings[selectedIteration] = {
-                  issues: selectedIssues,
-                  sprintId: thisSprintId,
-                  sprintName: thisSprintName,
-                  githubSprintTitle: selectedOption.text
-                };
-              } else {
-                // Keep the existing mapping if it's a different sprint
-                newMappings[selectedIteration] = sprintMappings[selectedIteration];
-              }
-            } else {
-              // Create new mapping
-              newMappings[selectedIteration] = {
-                issues: selectedIssues,
-                sprintId: thisSprintId,
-                sprintName: thisSprintName,
-                githubSprintTitle: selectedOption.text
-              };
-            }
+            // Use the ZenHub sprint ID as the key
+            newMappings[thisSprintId] = {
+              issues: selectedIssues.map(url => ({
+                url: url,
+                number: url.split('/').pop(),
+                githubIteration: selectedIteration,
+                githubIterationName: selectedOption.dataset.sprintName,
+                repoName: url.split('/')[4] // Extract repo name from URL
+              })),
+              pipelineName: thisSprintName
+            };
           }
         }
       });
@@ -335,12 +355,32 @@
         const sprintId = issueRow.dataset.sprintId;
         const sprintRow = document.querySelector(`.sprint-checkbox[data-sprint-id="${sprintId}"]`).closest('tr');
         const select = sprintRow.querySelector('select');
+        const selectedOption = select.selectedOptions[0];
         
         // Toggle line-through based on checkbox state
         if (checkbox.checked) {
           issueRow.classList.remove('line-through', 'text-gray-400');
+          // Show transition
+          const currentStatus = issueRow.querySelector('.current-status');
+          const newStatus = issueRow.querySelector('.new-status');
+          const arrow = issueRow.querySelector('.new-arrow');
+          
+          if (select.value) {
+            currentStatus.classList.add('line-through', 'text-gray-400');
+            arrow.classList.remove('hidden');
+            newStatus.classList.remove('hidden');
+            newStatus.querySelector('span').textContent = selectedOption.dataset.sprintName;
+          }
         } else {
           issueRow.classList.add('line-through', 'text-gray-400');
+          // Hide transition
+          const currentStatus = issueRow.querySelector('.current-status');
+          const newStatus = issueRow.querySelector('.new-status');
+          const arrow = issueRow.querySelector('.new-arrow');
+          
+          currentStatus.classList.remove('line-through', 'text-gray-400');
+          arrow.classList.add('hidden');
+          newStatus.classList.add('hidden');
         }
         
         updateSprintCheckboxState(sprintId);
@@ -359,12 +399,42 @@
     updateIssueCount();
 
     // Initialize styles, checkboxes states and JSON on page load
-    document.querySelectorAll('select').forEach(select => {
-      updateStyles(select);
-    });
-    document.querySelectorAll('.sprint-checkbox').forEach(checkbox => {
-      updateSprintCheckboxState(checkbox.dataset.sprintId);
-    });
-    generateJson();
+    function initializePage() {
+      // First update all sprint selections and styles
+      document.querySelectorAll('select').forEach(select => {
+        const sprintRow = select.closest('tr');
+        const sprintId = sprintRow.querySelector('.sprint-checkbox').dataset.sprintId;
+        const contentRow = document.getElementById('content-' + sprintId);
+        
+        // For each checked issue under this sprint
+        contentRow.querySelectorAll('.issue-checkbox:checked').forEach(checkbox => {
+          const issueRow = checkbox.closest('.issue-row');
+          const currentStatus = issueRow.querySelector('.current-status');
+          const newStatus = issueRow.querySelector('.new-status');
+          const arrow = issueRow.querySelector('.new-arrow');
+          
+          // If a sprint is selected, show the transition
+          if (select.value) {
+            currentStatus.classList.add('line-through', 'text-gray-400');
+            arrow.classList.remove('hidden');
+            newStatus.classList.remove('hidden');
+            newStatus.querySelector('span').textContent = select.selectedOptions[0].dataset.sprintName;
+          }
+        });
+        
+        updateStyles(select);
+      });
+
+      // Then update all checkbox states and counts
+      document.querySelectorAll('.sprint-checkbox').forEach(checkbox => {
+        updateSprintCheckboxState(checkbox.dataset.sprintId);
+      });
+      
+      generateJson();
+      updateIssueCount();
+    }
+
+    // Call initialization
+    initializePage();
   </script>
 </div>

@@ -80,10 +80,30 @@
       document.querySelectorAll('.issue-row').forEach(issueRow => {
         const checkbox = issueRow.querySelector('.issue-checkbox');
         if (!checkbox.checked) {
-          issueRow.classList.toggle('hidden', hideUnselected);
+          if (hideUnselected) {
+            issueRow.classList.add('hidden');
+          } else {
+            issueRow.classList.remove('hidden');
+          }
         }
       });
-      updatePipelineIssueCounts();
+      if (typeof updatePipelineIssueCounts === 'function') {
+        updatePipelineIssueCounts();
+      }
+      if (typeof updateSprintIssueCounts === 'function') {
+        updateSprintIssueCounts();
+      }
+    }
+
+    function hideUncheckedIssueWithDelay(issueRow) {
+      if (document.getElementById('hide-unselected').checked) {
+        setTimeout(() => {
+          const checkbox = issueRow.querySelector('.issue-checkbox');
+          if (!checkbox.checked) {
+            issueRow.classList.add('hidden');
+          }
+        }, 2000);
+      }
     }
 
     function toggleAccordion(id) {

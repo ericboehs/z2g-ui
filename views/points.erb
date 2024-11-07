@@ -168,18 +168,12 @@
           // Update line-through styling for each issue
           const issueRow = issueCheckbox.closest('.issue-row');
           if (checkbox.checked) {
-            issueRow.classList.remove('line-through', 'text-gray-400');
-            issueRow.classList.remove('hidden');
+            issueRow.classList.remove('line-through', 'text-gray-400', 'hidden');
+            updatePointsDisplay(checkbox);
           } else {
             issueRow.classList.add('line-through', 'text-gray-400');
-            if (document.getElementById('hide-unselected').checked) {
-              setTimeout(() => {
-                const currentCheckbox = issueRow.querySelector('.issue-checkbox');
-                if (!currentCheckbox.checked) {  // Only hide if still unchecked
-                  issueRow.classList.add('hidden');
-                }
-              }, 2000);
-            }
+            updatePointsDisplay(checkbox);
+            hideUncheckedIssueWithDelay(issueRow);
           }
         });
         
@@ -224,6 +218,7 @@
                 return {
                   url: checkbox.dataset.issueUrl,
                   number: checkbox.dataset.issueNumber,
+                  repoName: checkbox.dataset.issueUrl.split('/')[4],
                   githubPoints: parseInt(issueRow.dataset.githubPoints) || null,
                   zenhubPoints: parseInt(issueRow.dataset.zenhubPoints) || null
                 };
@@ -280,21 +275,12 @@
           
           // Update display state based on checkbox
           if (checkbox.checked) {
-            issueRow.classList.remove('line-through', 'text-gray-400');
-            issueRow.classList.remove('hidden');
+            issueRow.classList.remove('line-through', 'text-gray-400', 'hidden');
             updatePointsDisplay(checkbox);
           } else {
             issueRow.classList.add('line-through', 'text-gray-400');
             updatePointsDisplay(checkbox);
-            // If hide unselected is checked, hide this row after 2 seconds
-            if (document.getElementById('hide-unselected').checked) {
-              setTimeout(() => {
-                if (!checkbox.checked) {  // Only hide if still unchecked
-                  issueRow.classList.add('hidden');
-                  updatePipelineIssueCounts();
-                }
-              }, 2000);
-            }
+            hideUncheckedIssueWithDelay(issueRow);
           }
           
           // Update the count for this specific pipeline

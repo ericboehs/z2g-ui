@@ -170,13 +170,7 @@
             issueRow.classList.remove('line-through', 'text-gray-200', 'hidden');
           } else {
             issueRow.classList.add('line-through', 'text-gray-400');
-            if (document.getElementById('hide-unselected').checked) {
-              setTimeout(() => {
-                if (!checkbox.checked) {  // Only hide if still unchecked
-                  issueRow.classList.add('hidden');
-                }
-              }, 2000);
-            }
+            hideUncheckedIssueWithDelay(issueRow);
           }
         });
         
@@ -222,6 +216,7 @@
               .map(checkbox => ({
                 url: checkbox.dataset.issueUrl,
                 number: checkbox.dataset.issueNumber,
+                repoName: checkbox.dataset.issueUrl.split('/')[4],
                 githubStatus: selectedStatus || null,
                 githubStatusName: selectedStatus ? select.options[select.selectedIndex].text : null
               }));

@@ -113,7 +113,29 @@
       target.classList.toggle('hidden');
     }
 
-    // Call on page load
-    displayMigrationSummary();
+    // Initialize the page
+    function initializePage() {
+      displayMigrationSummary();
+      
+      // Update issue counts
+      const statusMappings = JSON.parse(sessionStorage.getItem('statusMappings') || '{}');
+      const sprintMappings = JSON.parse(sessionStorage.getItem('sprintMappings') || '{}');
+      
+      let totalIssues = 0;
+      Object.values(statusMappings).forEach(mapping => {
+        if (mapping.issues) totalIssues += mapping.issues.length;
+      });
+      Object.values(sprintMappings).forEach(mapping => {
+        if (mapping.issues) totalIssues += (Array.isArray(mapping.issues) ? mapping.issues.length : 1);
+      });
+
+      const nextStepInfo = document.querySelector('p.next-step-info');
+      if (nextStepInfo) {
+        nextStepInfo.textContent = `Selected Issues: ${totalIssues}`;
+      }
+    }
+
+    // Call initialization
+    initializePage();
   </script>
 </div>
