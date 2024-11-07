@@ -59,7 +59,16 @@
         <table class="min-w-full divide-y divide-gray-300">
           <thead class="bg-gray-50">
             <tr>
-              <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">ZenHub Pipeline</th>
+              <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">
+                <div class="flex items-center">
+                  <input type="checkbox" 
+                         checked
+                         class="mr-2"
+                         id="master-checkbox"
+                         onclick="handleMasterCheckbox(this)">
+                  <span>ZenHub Pipeline</span>
+                </div>
+              </th>
               <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">GitHub Status</th>
             </tr>
           </thead>
@@ -377,6 +386,25 @@
           pipelineCheckbox.checked = false;
         }
       });
+
+      function handleMasterCheckbox(checkbox) {
+        // Update all pipeline checkboxes
+        document.querySelectorAll('.pipeline-checkbox').forEach(pipelineCheckbox => {
+          pipelineCheckbox.checked = checkbox.checked;
+          pipelineCheckbox.indeterminate = false;
+          handlePipelineCheckbox(pipelineCheckbox);
+        });
+
+        // Update all issue checkboxes
+        document.querySelectorAll('.issue-checkbox').forEach(issueCheckbox => {
+          issueCheckbox.checked = checkbox.checked;
+          updateIssueStatus(issueCheckbox);
+        });
+
+        generateJson();
+        updateIssueCount();
+        updatePipelineIssueCounts();
+      }
 
       generateJson();
       updateIssueCount();

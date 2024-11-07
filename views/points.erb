@@ -59,7 +59,16 @@
         <table class="min-w-full divide-y divide-gray-300">
           <thead class="bg-gray-50">
             <tr>
-              <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">ZenHub Pipeline</th>
+              <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">
+                <div class="flex items-center">
+                  <input type="checkbox" 
+                         checked
+                         class="mr-2"
+                         id="master-checkbox"
+                         onclick="handleMasterCheckbox(this)">
+                  <span>ZenHub Pipeline</span>
+                </div>
+              </th>
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-200">
@@ -281,6 +290,26 @@
         }
       }
 
+      function handleMasterCheckbox(checkbox) {
+        document.querySelectorAll('.pipeline-checkbox').forEach(pipelineCheckbox => {
+          pipelineCheckbox.checked = checkbox.checked;
+          handlePipelineCheckbox(pipelineCheckbox);
+        });
+        updatePipelineIssueCounts();
+        generateJson();
+        updateIssueCount();
+      }
+
+      function handleMasterCheckbox(checkbox) {
+        document.querySelectorAll('.pipeline-checkbox').forEach(pipelineCheckbox => {
+          pipelineCheckbox.checked = checkbox.checked;
+          handlePipelineCheckbox(pipelineCheckbox);
+        });
+        updatePipelineIssueCounts();
+        generateJson();
+        updateIssueCount();
+      }
+
       // Initialize checkbox event listeners
       document.querySelectorAll('.issue-checkbox').forEach(checkbox => {
         checkbox.addEventListener('change', () => {
@@ -350,7 +379,6 @@
 
       // Initialize the page
       function initializePage() {
-        initializePointsDisplay();
         // First uncheck issues without points
         document.querySelectorAll('.issue-row').forEach(issueRow => {
           const zenhubPoints = parseInt(issueRow.dataset.zenhubPoints);

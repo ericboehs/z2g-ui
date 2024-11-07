@@ -61,7 +61,16 @@
             <table class="min-w-full divide-y divide-gray-300">
               <thead class="bg-gray-50">
                 <tr>
-                  <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">ZenHub Sprint</th>
+                  <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">
+                    <div class="flex items-center">
+                      <input type="checkbox" 
+                             checked
+                             class="mr-2"
+                             id="master-checkbox"
+                             onclick="handleMasterCheckbox(this)">
+                      <span>ZenHub Sprint</span>
+                    </div>
+                  </th>
                   <th scope="col" class="px-3 py-3.5 text-center text-sm font-semibold text-gray-900">GitHub Sprint</th>
                 </tr>
               </thead>
@@ -432,6 +441,26 @@
         updateSprintCheckboxState(checkbox.dataset.sprintId);
       });
       
+      generateJson();
+      updateIssueCount();
+    }
+
+    function handleMasterCheckbox(checkbox) {
+      document.querySelectorAll('.pipeline-checkbox').forEach(pipelineCheckbox => {
+        pipelineCheckbox.checked = checkbox.checked;
+        handlePipelineCheckbox(pipelineCheckbox);
+      });
+      updatePipelineIssueCounts();
+      generateJson();
+      updateIssueCount();
+    }
+
+    function handleMasterCheckbox(checkbox) {
+      document.querySelectorAll('.sprint-checkbox').forEach(sprintCheckbox => {
+        sprintCheckbox.checked = checkbox.checked;
+        handleSprintCheckbox(sprintCheckbox);
+      });
+      updateSprintIssueCounts();
       generateJson();
       updateIssueCount();
     }
