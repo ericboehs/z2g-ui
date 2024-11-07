@@ -42,18 +42,18 @@
             GitHub Project
           </a>
         </div>
-        <a href="<%= params[:github_url] %>/settings/fields/<%= @github_status_field&.dig('name') %>" 
+        <a href="<%= params[:github_url] %>/settings" 
            target="_blank" 
            class="text-sm text-gray-600 hover:text-gray-900 flex items-center gap-1">
           <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
             <path d="M10 6V8H5V19H16V14H18V20C18 20.5523 17.5523 21 17 21H4C3.44772 21 3 20.5523 3 20V7C3 6.44772 3 6 4 6H10ZM21 3V11H19L18.9999 6.413L11.2071 14.2071L9.79289 12.7929L17.5849 5H13V3H21Z"/>
           </svg>
-          Need to add a Status?
+          Need to add the "Points" Number field?
         </a>
       </div>
       <div class="flex items-center mb-4">
-        <input type="checkbox" id="hide-migrated" class="mr-2" onclick="toggleMigratedIssues()">
-        <label for="hide-migrated" class="text-sm text-gray-700">Only show selected Issues</label>
+        <input type="checkbox" id="hide-unselected" class="mr-2" onclick="toggleUnselectedIssues()">
+        <label for="hide-unselected" class="text-sm text-gray-700">Only show selected Issues</label>
       </div>
       <div class="bg-white shadow rounded-lg overflow-hidden">
         <table class="min-w-full divide-y divide-gray-300">
@@ -155,10 +155,12 @@
             issueRow.classList.remove('hidden');
           } else {
             issueRow.classList.add('line-through', 'text-gray-200');
-            // If hide unselected is checked, hide this row after 2 seconds
-            if (document.getElementById('hide-migrated').checked) {
+            if (document.getElementById('hide-unselected').checked) {
               setTimeout(() => {
-                issueRow.classList.add('hidden');
+                const currentCheckbox = issueRow.querySelector('.issue-checkbox');
+                if (!currentCheckbox.checked) {  // Only hide if still unchecked
+                  issueRow.classList.add('hidden');
+                }
               }, 2000);
             }
           }
@@ -264,10 +266,12 @@
           } else {
             issueRow.classList.add('line-through', 'text-gray-200');
             // If hide unselected is checked, hide this row after 2 seconds
-            if (document.getElementById('hide-migrated').checked) {
+            if (document.getElementById('hide-unselected').checked) {
               setTimeout(() => {
-                issueRow.classList.add('hidden');
-                updatePipelineIssueCounts();
+                if (!checkbox.checked) {  // Only hide if still unchecked
+                  issueRow.classList.add('hidden');
+                  updatePipelineIssueCounts();
+                }
               }, 2000);
             }
           }
@@ -323,8 +327,8 @@
       // Call initialization
       initializePage();
 
-      function toggleMigratedIssues() {
-        const hideUnselected = document.getElementById('hide-migrated').checked;
+      function toggleUnselectedIssues() {
+        const hideUnselected = document.getElementById('hide-unselected').checked;
         document.querySelectorAll('.issue-row').forEach(issueRow => {
           const checkbox = issueRow.querySelector('.issue-checkbox');
           if (!checkbox.checked) {
