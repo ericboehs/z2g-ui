@@ -93,7 +93,7 @@
                               <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
                             </svg>
                             <span class="font-medium text-gray-900"><%= sprint["name"] %></span>
-                            <span class="text-gray-500 ml-2 sprint-issue-count">(<%= sprint_issues.length %> issues)</span>
+                            <span class="text-gray-500 ml-2 sprint-issue-count">(<%= sprint_issues.length %> issues selected)</span>
                           </div>
                         </div>
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4">
@@ -151,7 +151,6 @@
                               <tr class="issue-row" data-sprint-id="<%= sprint["id"] %>" data-sprint-name="<%= sprint["name"] %>">
                                 <td class="whitespace-nowrap py-4 pl-8 pr-3 text-sm">
                                   <input type="checkbox" 
-                                         checked
                                          class="issue-checkbox mr-2"
                                          data-issue-url="<%= issue["htmlUrl"] %>"
                                          data-issue-number="<%= issue["number"] %>"
@@ -332,7 +331,7 @@
         const contentRow = document.getElementById('content-' + sprintId);
         const visibleIssues = Array.from(contentRow.querySelectorAll('.issue-row'))
           .filter(row => !row.classList.contains('line-through')).length;
-        sprintRow.querySelector('.sprint-issue-count').textContent = `(${visibleIssues} issues)`;
+        sprintRow.querySelector('.sprint-issue-count').textContent = `(${visibleIssues} issues selected)`;
       });
     }
 
@@ -349,7 +348,6 @@
     }
 
     document.querySelectorAll('.issue-checkbox').forEach(checkbox => {
-      checkbox.checked = true;
       checkbox.addEventListener('change', () => {
         const issueRow = checkbox.closest('tr[data-sprint-id]');
         const sprintId = issueRow.dataset.sprintId;
@@ -405,20 +403,24 @@
         const sprintRow = select.closest('tr');
         const sprintId = sprintRow.querySelector('.sprint-checkbox').dataset.sprintId;
         const contentRow = document.getElementById('content-' + sprintId);
+        const selectedSprintName = select.selectedOptions[0]?.dataset?.sprintName;
         
-        // For each checked issue under this sprint
-        contentRow.querySelectorAll('.issue-checkbox:checked').forEach(checkbox => {
+        // For each issue under this sprint
+        contentRow.querySelectorAll('.issue-checkbox').forEach(checkbox => {
           const issueRow = checkbox.closest('.issue-row');
-          const currentStatus = issueRow.querySelector('.current-status');
-          const newStatus = issueRow.querySelector('.new-status');
-          const arrow = issueRow.querySelector('.new-arrow');
+          const currentStatus = issueRow.querySelector('.current-status span');
+          const currentSprintName = currentStatus?.textContent?.trim() || 'Not Set';
           
-          // If a sprint is selected, show the transition
-          if (select.value) {
-            currentStatus.classList.add('line-through', 'text-gray-400');
+          // Check the box if the sprint would change
+          if (select.value && currentSprintName !== selectedSprintName) {
+            checkbox.checked = true;
+            const newStatus = issueRow.querySelector('.new-status');
+            const arrow = issueRow.querySelector('.new-arrow');
+            
+            currentStatus.closest('.current-status').classList.add('line-through', 'text-gray-400');
             arrow.classList.remove('hidden');
             newStatus.classList.remove('hidden');
-            newStatus.querySelector('span').textContent = select.selectedOptions[0].dataset.sprintName;
+            newStatus.querySelector('span').textContent = selectedSprintName;
           }
         });
         
