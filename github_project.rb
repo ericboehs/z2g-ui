@@ -227,6 +227,51 @@ module Github
       @client ||= Octokit::Client.new(access_token: token)
     end
 
+    def add_issue(issue_url)
+      issue_id ||= query(
+        %Q{query{
+          resource(url: "#{issue_url}") {
+            ... on Issue {
+              id
+            }
+          }
+        }}
+      )[:data][:resource][:id]
+
+      result = query <<-GRAPHQL
+        mutation {
+          addProjectV2ItemById(input: {projectId: "#{node_id}" contentId: "#{issue_id}"}) {item {id}}
+        }
+      GRAPHQL
+
+      result.dig(:data, :addProjectV2ItemById, :item, :id)
+    end
+
+    def set_issue_field(issue_id:, field_node_id:, option_node_id: nil, iteration_id: nil, value: nil)
+      value = %Q{text: #{value}} if value.is_a? String
+      value = %Q{number: #{value}} if value.is_a? Numeric
+      value = %Q{singleSelectOptionId: "#{option_node_id}"} if option_node_id
+      value = %Q{iterationId: "#{iteration_id}"} if iteration_id
+      query <<-GRAPHQL
+      mutation {
+        updateProjectV2ItemFieldValue(
+          input: {
+            projectId: "#{node_id}"
+            itemId: "#{issue_id}"
+            fieldId: "#{field_node_id}"
+            value: {
+              #{value}
+            }
+          }
+        ) {
+          projectV2Item {
+            id
+          }
+        }
+      }
+      GRAPHQL
+    end
+
     private
 
     def handle_rate_limit

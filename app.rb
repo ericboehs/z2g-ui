@@ -314,6 +314,7 @@ class App < Sinatra::Base
           @github_status_options = cached[:status_options]
           @github_status_field = cached[:status_field]
           @github_sprint_field = cached[:sprint_field]
+          @github_points_field = cached[:points_field]
           @github_issues = cached[:issues]
           return
         else
@@ -385,6 +386,12 @@ class App < Sinatra::Base
                     }
                   }
                 }
+                pointsField: field(name: "Points") {
+                  ... on ProjectV2Field {
+                    id
+                    name
+                  }
+                }
               }
             }
           }
@@ -399,9 +406,11 @@ class App < Sinatra::Base
         status_response = http.request(status_request)
         if status_response.is_a?(Net::HTTPSuccess)
           status_data = JSON.parse(status_response.body)
+
           @github_status_options = status_data.dig('data', 'node', 'statusField', 'options')
           @github_sprint_field = status_data.dig('data', 'node', 'sprintField')
           @github_status_field = status_data.dig('data', 'node', 'statusField')
+          @github_points_field = status_data.dig('data', 'node', 'pointsField')
 
           # Cache the results
           github_project = Github::Project.new(
@@ -414,6 +423,7 @@ class App < Sinatra::Base
             status_options: @github_status_options,
             status_field: @github_status_field,
             sprint_field: @github_sprint_field,
+            points_field: @github_points_field,
             issues: @github_issues,
             timestamp: Time.now.to_i
           }
@@ -550,6 +560,18 @@ class App < Sinatra::Base
   post '/migrate' do
     require_tokens
     
+    workspace_id = extract_workspace_id(session[:workspace_url])
+    github_info = extract_github_project_info(session[:github_url])
+
+    if workspace_id.nil? || github_info.nil?
+      status 400
+      return "Please provide valid ZenHub workspace and GitHub project URLs."
+    end
+
+    query_zenhub_workspace(workspace_id)
+    query_github_project(github_info)
+    App.save_caches
+    
     begin
       # Parse the JSON data from form
       status_mappings = JSON.parse(params[:statusMappings])
@@ -564,6 +586,85 @@ class App < Sinatra::Base
       pp sprint_mappings
       puts "\nPoints Mappings:" 
       pp points_mappings
+
+      # Get GitHub project instance
+      github_info = extract_github_project_info(session[:github_url])
+      github_project = Github::Project.new(
+        token: session[:github_token],
+        organization: github_info[:organization],
+        number: github_info[:project_number]
+      )
+
+      # Process status mappings
+      status_mappings.each do |_zenhub_pipeline_id, pipeline_data|
+        pipeline_data["issues"].each do |issue|
+          begin
+            # Add issue to project and get the item ID
+            item_id = github_project.add_issue(issue["url"])
+
+            # Set status field if specified
+            if issue["githubStatus"]
+              github_project.set_issue_field(
+                issue_id: item_id,
+                field_node_id: @github_status_field["id"],
+                option_node_id: issue["githubStatus"]
+              )
+            end
+
+            $logger.info "Processed status for issue #{issue['number']}"
+          rescue => e
+            $logger.error "Failed to process status for issue #{issue['number']}: #{e.message}"
+          end
+        end
+      end
+
+      # Process sprint mappings  
+      sprint_mappings.each do |_zenhub_sprint_id, sprint_data|
+        sprint_data["issues"].each do |issue|
+          begin
+            # Add issue to project and get the item ID
+            item_id = github_project.add_issue(issue["url"])
+
+            # Set sprint field if specified
+            if issue["githubIteration"]
+              github_project.set_issue_field(
+                issue_id: item_id,
+                field_node_id: @github_sprint_field["id"],
+                iteration_id: issue["githubIteration"]
+              )
+            end
+
+            $logger.info "Processed issue #{issue['number']}"
+          rescue => e
+            $logger.error "Failed to process issue #{issue['number']}: #{e.message}"
+          end
+        end
+      end
+
+      # Process points mappings
+      points_mappings.each do |_zenhub_sprint_id, issue_data|
+        issue_data["issues"].each do |issue|
+          begin
+            # Add issue to project and get the item ID
+            item_id = github_project.add_issue(issue["url"])
+
+            # Set points field if specified
+            if issue["zenhubPoints"]
+              github_project.set_issue_field(
+                issue_id: item_id,
+                field_node_id: @github_points_field["id"],
+                value: issue["zenhubPoints"]
+              )
+            end
+
+            $logger.info "Set points for issue #{issue['number']}"
+            require'pry';binding.pry
+          rescue => e
+            $logger.error "Failed to set points for issue #{issue['number']}: #{e.message}"
+          end
+        end
+      end
+
       puts "\n=== Migration Complete ===\n"
       
       # Redirect to done page
