@@ -1,23 +1,7 @@
 require 'logger'
 $logger ||= Logger.new $stdout
 
-require 'bundler/inline'
-
-gemfile do
-  source 'https://rubygems.org'
-  gem 'octokit'
-  gem 'sinatra'
-  gem 'sinatra-session'
-  gem 'graphql-client'
-  gem 'puma'
-  gem 'rack'
-  gem 'rackup'
-  gem 'uri'
-
-  # Development gems
-  gem 'pry'
-  gem 'rerun'
-end
+require 'bundler/setup'
 
 require 'sinatra/base'
 require 'sinatra/session'

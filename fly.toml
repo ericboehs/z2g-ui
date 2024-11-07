@@ -1,0 +1,29 @@
+app = "z2g-ui"
+
+[build]
+  dockerfile = "./Dockerfile"
+
+[experimental]
+  allowed_public_ports = [9292]
+  auto_rollback = true
+
+[processes]
+  web = "bundle exec rackup config.ru -o 0.0.0.0"
+
+[[services]]
+  processes = ["web"]
+  internal_port = 9292
+  protocol = "tcp"
+
+  [[services.ports]]
+    port = 80
+
+  [[services.ports]]
+    handlers = ["tls", "http"]
+    port = 443
+
+  [[services.tcp_checks]]
+    interval = 10000
+    timeout = 2000
+    grace_period = "5s"
+    restart_limit = 0
