@@ -117,7 +117,9 @@
                         <% @pipeline_data[pipeline["id"]][:issues].each do |issue| %>
                           <% github_issue = @github_issues.find { |gh_issue| gh_issue[:content][:url] == issue["htmlUrl"] } %>
                           <% github_status = github_issue&.dig(:fieldValues, :nodes)&.find { |node| node.dig(:field, :name) == "Status" }&.dig(:name) %>
-                          <tr class="issue-row text-gray-700" data-github-status="<%= github_status %>">
+                          <tr class="issue-row text-gray-700" 
+                              data-github-status="<%= github_status %>"
+                              data-sprint-title="<%= issue['sprintTitle'] %>">
                             <td class="whitespace-nowrap py-4 pl-8 pr-3 text-sm">
                               <input type="checkbox" 
                                      checked
@@ -222,6 +224,23 @@
         });
         
         sessionStorage.setItem('statusMappings', JSON.stringify(mappings));
+
+        // Generate sprint mappings
+        const sprintMappings = {};
+        document.querySelectorAll('.issue-checkbox:checked').forEach(checkbox => {
+          const issueRow = checkbox.closest('.issue-row');
+          const sprintTitle = issueRow.dataset.sprintTitle;
+          if (sprintTitle) {
+            if (!sprintMappings[sprintTitle]) {
+              sprintMappings[sprintTitle] = [];
+            }
+            sprintMappings[sprintTitle].push({
+              url: checkbox.dataset.issueUrl,
+              number: checkbox.dataset.issueNumber
+            });
+          }
+        });
+        sessionStorage.setItem('sprintMappings', JSON.stringify(sprintMappings));
       }
 
       function updateIssueCount() {
@@ -273,6 +292,7 @@
           }
         });
         toggleMigratedIssues()
+        updatePipelineCheckboxState(pipelineRow.querySelector('.pipeline-checkbox').dataset.pipelineId);
         generateJson();
       }
 

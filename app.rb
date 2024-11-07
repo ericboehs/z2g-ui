@@ -519,6 +519,18 @@ class App < Sinatra::Base
 
   get '/review' do
     require_tokens
+    workspace_id = extract_workspace_id(params[:workspace_url])
+    github_info = extract_github_project_info(params[:github_url])
+    
+    if workspace_id.nil? || github_info.nil?
+      status 400
+      return "Please provide valid ZenHub workspace and GitHub project URLs."
+    end
+
+    query_zenhub_workspace(workspace_id)
+    query_github_project(github_info)
+    App.save_caches
+
     # Implement migration logic here
     steps = [
       { name: "Connect", number: "01", current: false, completed: true, url: "/connect?#{request.query_string}" },

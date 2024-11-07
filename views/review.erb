@@ -7,8 +7,12 @@
     </p>
   </div>
 
-  <div class="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
+  <div class="mt-8 sm:mx-auto sm:w-full sm:max-w-2xl">
     <div class="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+      <div class="mb-8">
+        <h3 class="text-lg font-medium mb-4">Issues to be Migrated</h3>
+        <div id="migration-summary"></div>
+      </div>
       <form class="space-y-6" method="POST" action="/migrate">
         <div>
           <button type="submit" class="flex w-full justify-center rounded-md border border-transparent bg-indigo-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
@@ -18,4 +22,98 @@
       </form>
     </div>
   </div>
+
+  <script>
+    function displayMigrationSummary() {
+      const summaryDiv = document.getElementById('migration-summary');
+      const statusMappings = JSON.parse(sessionStorage.getItem('statusMappings') || '{}');
+      const sprintMappings = JSON.parse(sessionStorage.getItem('sprintMappings') || '{}');
+      
+      let html = '';
+
+      // Status mappings summary
+      if (Object.keys(statusMappings).length > 0) {
+        html += '<div class="mb-6"><h4 class="font-medium mb-2">Status Changes:</h4>';
+        for (const [pipelineId, data] of Object.entries(statusMappings)) {
+          if (data.issues.length > 0) {
+            const statusName = data.issues[0].githubStatusName;
+            html += `
+              <div class="mb-4">
+                <div class="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded-md" 
+                     onclick="toggleIssueList(this, 'status-${pipelineId}')">
+                  <svg class="w-4 h-4 transition-transform duration-200" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+                  </svg>
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 4.5v15m6-15v15m-10.875 0h15.75c.621 0 1.125-.504 1.125-1.125V5.625c0-.621-.504-1.125-1.125-1.125H4.125C3.504 4.5 3 5.004 3 5.625v12.75c0 .621.504 1.125 1.125 1.125Z" />
+                  </svg>
+                  <span class="font-medium">${data.pipelineName}</span> → <span class="text-indigo-600">${statusName}</span>
+                  <span class="text-sm text-gray-600 ml-2">(${data.issues.length} issue${data.issues.length !== 1 ? 's' : ''})</span>
+                </div>
+                <div id="status-${pipelineId}" class="hidden ml-8 mt-2">
+                  ${data.issues.map(issue => `
+                    <div class="text-sm py-1">
+                      <a href="${issue.url}" target="_blank" class="text-blue-600 hover:text-blue-800">#${issue.number}</a>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>`;
+          }
+        }
+        html += '</div>';
+      }
+
+      // Sprint mappings summary
+      if (Object.keys(sprintMappings).length > 0) {
+        html += '<div><h4 class="font-medium mb-2">Sprint Assignments:</h4>';
+        for (const [sprintId, data] of Object.entries(sprintMappings)) {
+          if (data.issues && data.issues.length > 0) {
+            const issueUrls = Array.isArray(data.issues) ? data.issues : [data.issues];
+            html += `
+              <div class="mb-4">
+                <div class="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded-md"
+                     onclick="toggleIssueList(this, 'sprint-${sprintId}')">
+                  <svg class="w-4 h-4 transition-transform duration-200" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+                  </svg>
+                  <svg class="w-4 h-4 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <span class="font-medium">${data.githubSprintTitle || data.sprintName}</span>
+                  <span class="text-sm text-gray-600 ml-2">(${issueUrls.length} issue${issueUrls.length !== 1 ? 's' : ''})</span>
+                </div>
+                <div id="sprint-${sprintId}" class="hidden ml-8 mt-2">
+                  ${issueUrls.map(url => {
+                    const issueNumber = url.split('/').pop();
+                    return `
+                      <div class="text-sm py-1">
+                        <a href="${url}" target="_blank" class="text-blue-600 hover:text-blue-800">#${issueNumber}</a>
+                      </div>
+                    `;
+                  }).join('')}
+                </div>
+              </div>`;
+          }
+        }
+        html += '</div>';
+      }
+
+      if (html === '') {
+        html = '<div class="text-amber-600">No issues selected for migration</div>';
+      }
+
+      summaryDiv.innerHTML = html;
+    }
+
+    function toggleIssueList(element, targetId) {
+      const arrow = element.querySelector('svg');
+      const target = document.getElementById(targetId);
+      
+      arrow.style.transform = target.classList.contains('hidden') ? 'rotate(90deg)' : '';
+      target.classList.toggle('hidden');
+    }
+
+    // Call on page load
+    displayMigrationSummary();
+  </script>
 </div>
