@@ -16,6 +16,76 @@
       });
     });
 
+    function handlePipelineCheckbox(checkbox) {
+      const pipelineRow = checkbox.closest('tr');
+      const contentRow = pipelineRow.nextElementSibling;
+      const issueCheckboxes = contentRow.querySelectorAll('.issue-checkbox');
+      
+      issueCheckboxes.forEach(issueCheckbox => {
+        issueCheckbox.checked = checkbox.checked;
+        const issueRow = issueCheckbox.closest('.issue-row');
+        if (checkbox.checked) {
+          issueRow.classList.remove('line-through', 'text-gray-200', 'hidden');
+        } else {
+          issueRow.classList.add('line-through', 'text-gray-200');
+          if (document.getElementById('hide-unselected').checked) {
+            setTimeout(() => {
+              if (!issueCheckbox.checked) {  // Only hide if still unchecked
+                issueRow.classList.add('hidden');
+              }
+            }, 2000);
+          }
+        }
+      });
+      
+      checkbox.indeterminate = false;
+      updatePipelineCheckboxState(checkbox.dataset.pipelineId);
+      updatePipelineIssueCounts();
+      generateJson();
+      updateIssueCount();
+    }
+
+    function updatePipelineCheckboxState(pipelineId) {
+      const pipelineCheckbox = document.querySelector(`.pipeline-checkbox[data-pipeline-id="${pipelineId}"]`);
+      const contentRow = document.getElementById('content-' + pipelineId);
+      const issueCheckboxes = Array.from(contentRow.querySelectorAll('.issue-checkbox'));
+      
+      const checkedCount = issueCheckboxes.filter(cb => cb.checked).length;
+      
+      if (checkedCount === 0) {
+        pipelineCheckbox.checked = false;
+        pipelineCheckbox.indeterminate = false;
+      } else if (checkedCount === issueCheckboxes.length) {
+        pipelineCheckbox.checked = true;
+        pipelineCheckbox.indeterminate = false;
+      } else {
+        pipelineCheckbox.checked = false;
+        pipelineCheckbox.indeterminate = true;
+      }
+    }
+
+    function updatePipelineIssueCounts() {
+      document.querySelectorAll('.issue-count').forEach(issueCountElement => {
+        const pipelineRow = issueCountElement.closest('tr');
+        const contentRow = pipelineRow.nextElementSibling;
+        const checkedVisibleIssues = Array.from(contentRow.querySelectorAll('.issue-row:not(.hidden) .issue-checkbox'))
+          .filter(checkbox => checkbox.checked).length;
+        const totalIssues = contentRow.querySelectorAll('.issue-checkbox').length;
+        issueCountElement.textContent = `(${checkedVisibleIssues}/${totalIssues} issues)`;
+      });
+    }
+
+    function toggleUnselectedIssues() {
+      const hideUnselected = document.getElementById('hide-unselected').checked;
+      document.querySelectorAll('.issue-row').forEach(issueRow => {
+        const checkbox = issueRow.querySelector('.issue-checkbox');
+        if (!checkbox.checked) {
+          issueRow.classList.toggle('hidden', hideUnselected);
+        }
+      });
+      updatePipelineIssueCounts();
+    }
+
     function toggleAccordion(id) {
       const content = document.getElementById(`content-${id}`);
       const arrow = document.getElementById(`arrow-${id}`);

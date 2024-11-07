@@ -52,8 +52,8 @@
         </a>
       </div>
       <div class="flex items-center mb-4">
-        <input type="checkbox" id="hide-migrated" class="mr-2" onclick="toggleMigratedIssues()">
-        <label for="hide-migrated" class="text-sm text-gray-700">Only show selected Issues</label>
+        <input type="checkbox" id="hide-unselected" class="mr-2" onclick="toggleUnselectedIssues()">
+        <label for="hide-unselected" class="text-sm text-gray-700">Only show selected Issues</label>
       </div>
       <div class="bg-white shadow rounded-lg overflow-hidden">
         <table class="min-w-full divide-y divide-gray-300">
@@ -132,11 +132,16 @@
                                 #<%= issue["number"] %>
                               </a>
                             </td>
-                            <td class="whitespace-normal px-3 py-4 text-sm">
+                            <td class="whitespace-normal px-3 py-4 text-sm truncate max-w-md">
                               <%= issue["title"] %>
                             </td>
-                            <td class="whitespace-normal px-3 py-4 text-sm">
-                              <%= github_status ? github_status : "Not in Project" %>
+                            <td class="whitespace-normal px-3 py-4 text-sm status-cell">
+                              <span class="current-status">
+                                <%= github_status ? github_status : "Not in Project" %>
+                              </span>
+                              <span class="new-status hidden">
+                                → <span class="text-indigo-600"></span>
+                              </span>
                             </td>
                           </tr>
                         <% end %>
@@ -162,9 +167,16 @@
           // Update line-through styling for each issue
           const issueRow = issueCheckbox.closest('.issue-row');
           if (checkbox.checked) {
-            issueRow.classList.remove('line-through', 'text-gray-200');
+            issueRow.classList.remove('line-through', 'text-gray-200', 'hidden');
           } else {
-            issueRow.classList.add('line-through', 'text-gray-200');
+            issueRow.classList.add('line-through', 'text-gray-400');
+            if (document.getElementById('hide-unselected').checked) {
+              setTimeout(() => {
+                if (!checkbox.checked) {  // Only hide if still unchecked
+                  issueRow.classList.add('hidden');
+                }
+              }, 2000);
+            }
           }
         });
         
@@ -253,18 +265,36 @@
         document.querySelector('p.next-step-info').textContent = `Selected Issues: ${issueCount}`;
       }
 
+      function updateIssueStatus(checkbox) {
+        const issueRow = checkbox.closest('.issue-row');
+        const currentStatus = issueRow.querySelector('.current-status');
+        const newStatus = issueRow.querySelector('.new-status');
+        const pipelineSelect = issueRow.closest('tbody').closest('tr').previousElementSibling.querySelector('select');
+        
+        if (checkbox.checked) {
+          issueRow.classList.remove('line-through', 'text-gray-400');
+          currentStatus.classList.add('line-through', 'text-gray-400');
+          newStatus.classList.remove('hidden');
+          newStatus.querySelector('span').textContent = pipelineSelect.options[pipelineSelect.selectedIndex].text;
+        } else {
+          issueRow.classList.add('line-through', 'text-gray-400');
+          currentStatus.classList.remove('line-through', 'text-gray-400');
+          newStatus.classList.add('hidden');
+          if (document.getElementById('hide-unselected').checked) {
+            setTimeout(() => {
+              if (!checkbox.checked) {  // Only hide if still unchecked
+                issueRow.classList.add('hidden');
+              }
+            }, 2000);
+          }
+        }
+      }
+
       // Initialize checkbox event listeners
       document.querySelectorAll('.issue-checkbox').forEach(checkbox => {
         checkbox.addEventListener('change', () => {
           const pipelineId = checkbox.dataset.pipelineId;
-          const issueRow = checkbox.closest('.issue-row');
-          
-          // Toggle line-through based on checkbox state
-          if (checkbox.checked) {
-            issueRow.classList.remove('line-through', 'text-gray-200');
-          } else {
-            issueRow.classList.add('line-through', 'text-gray-200');
-          }
+          updateIssueStatus(checkbox);
           
           updatePipelineCheckboxState(pipelineId);
           generateJson();
@@ -284,14 +314,40 @@
           
           const checkbox = issueRow.querySelector('.issue-checkbox');
           if (needsMigration) {
-            issueRow.classList.remove('line-through', 'text-gray-200');
-            if (checkbox) checkbox.checked = true;
+            // Show and check the issue
+            issueRow.classList.remove('line-through', 'text-gray-400', 'hidden');
+            if (checkbox) {
+              checkbox.checked = true;
+              // Update the status display
+              const currentStatus = issueRow.querySelector('.current-status');
+              const newStatus = issueRow.querySelector('.new-status');
+              currentStatus.classList.add('line-through', 'text-gray-400');
+              newStatus.classList.remove('hidden');
+              newStatus.querySelector('span').textContent = selectedStatus;
+            }
           } else {
-            issueRow.classList.add('line-through', 'text-gray-200');
-            if (checkbox) checkbox.checked = false;
+            // Uncheck the issue and optionally hide it
+            if (checkbox) {
+              checkbox.checked = false;
+              // Reset the status display
+              const currentStatus = issueRow.querySelector('.current-status');
+              const newStatus = issueRow.querySelector('.new-status');
+              currentStatus.classList.remove('line-through', 'text-gray-400');
+              newStatus.classList.add('hidden');
+              
+              issueRow.classList.add('line-through', 'text-gray-400');
+              
+              // Only hide if "hide unselected" is checked
+              if (document.getElementById('hide-unselected').checked) {
+                setTimeout(() => {
+                  if (!checkbox.checked) {  // Only hide if still unchecked
+                    issueRow.classList.add('hidden');
+                  }
+                }, 2000);
+              }
+            }
           }
         });
-        toggleMigratedIssues()
         updatePipelineCheckboxState(pipelineRow.querySelector('.pipeline-checkbox').dataset.pipelineId);
         generateJson();
       }
@@ -309,6 +365,12 @@
       // Initialize the page
       document.querySelectorAll('select').forEach(select => {
         handleStatusSelect(select);
+        // Initialize status display for checked issues
+        const pipelineRow = select.closest('tr');
+        const contentRow = pipelineRow.nextElementSibling;
+        contentRow.querySelectorAll('.issue-checkbox:checked').forEach(checkbox => {
+          updateIssueStatus(checkbox);
+        });
       });
 
       // Uncheck pipelines with no checked issues
@@ -324,16 +386,6 @@
       generateJson();
       updateIssueCount();
       updatePipelineIssueCounts();
-
-      function toggleMigratedIssues() {
-        const hideMigrated = document.getElementById('hide-migrated').checked;
-        document.querySelectorAll('.issue-row').forEach(issueRow => {
-          if (issueRow.dataset.needsMigration === "false") {
-            issueRow.classList.toggle('hidden', hideMigrated);
-          }
-        });
-        updatePipelineIssueCounts();
-      }
     </script>
   <% end %>
 </div>

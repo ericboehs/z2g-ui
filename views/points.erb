@@ -151,10 +151,10 @@
           // Update line-through styling for each issue
           const issueRow = issueCheckbox.closest('.issue-row');
           if (checkbox.checked) {
-            issueRow.classList.remove('line-through', 'text-gray-200');
+            issueRow.classList.remove('line-through', 'text-gray-400');
             issueRow.classList.remove('hidden');
           } else {
-            issueRow.classList.add('line-through', 'text-gray-200');
+            issueRow.classList.add('line-through', 'text-gray-400');
             if (document.getElementById('hide-unselected').checked) {
               setTimeout(() => {
                 const currentCheckbox = issueRow.querySelector('.issue-checkbox');
@@ -261,10 +261,10 @@
           
           // Toggle line-through based on checkbox state
           if (checkbox.checked) {
-            issueRow.classList.remove('line-through', 'text-gray-200');
+            issueRow.classList.remove('line-through', 'text-gray-400');
             issueRow.classList.remove('hidden');
           } else {
-            issueRow.classList.add('line-through', 'text-gray-200');
+            issueRow.classList.add('line-through', 'text-gray-400');
             // If hide unselected is checked, hide this row after 2 seconds
             if (document.getElementById('hide-unselected').checked) {
               setTimeout(() => {
