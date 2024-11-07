@@ -429,26 +429,29 @@ class App < Sinatra::Base
   post '/set-connection' do
     content_type :json
     
-    # Validate and set tokens in session
+    # Validate tokens and URLs
     if params[:github_token].to_s.empty? || params[:zenhub_token].to_s.empty?
       status 400
       return {error: "Both GitHub and ZenHub tokens are required"}.to_json
     end
 
+    # Store everything in session
     session[:github_token] = params[:github_token]
     session[:zenhub_token] = params[:zenhub_token]
+    session[:workspace_url] = params[:workspace_url]
+    session[:github_url] = params[:github_url]
     
-    # Redirect to pipelines while preserving workspace_url and github_url parameters
-    redirect "/pipelines?workspace_url=#{URI.encode_www_form_component(params[:workspace_url])}&github_url=#{URI.encode_www_form_component(params[:github_url])}"
+    # Redirect to pipelines
+    redirect "/pipelines"
   end
 
   get '/connect' do
     steps = [
       { name: "Connect", number: "01", current: true, completed: false, url: "/connect" },
-      { name: "Pipelines", number: "02", current: false, completed: false, url: "/pipelines?#{request.query_string}" },
-      { name: "Points", number: "03", current: false, completed: false, url: "/points?#{request.query_string}" },
-      { name: "Sprints", number: "04", current: false, completed: false, url: "/sprints?#{request.query_string}" },
-      { name: "Review", number: "05", current: false, completed: false, url: "/review?#{request.query_string}" }
+      { name: "Pipelines", number: "02", current: false, completed: false, url: "/pipelines" },
+      { name: "Points", number: "03", current: false, completed: false, url: "/points" },
+      { name: "Sprints", number: "04", current: false, completed: false, url: "/sprints" },
+      { name: "Review", number: "05", current: false, completed: false, url: "/review" }
     ]
 
     erb :connect, locals: { steps: steps }
@@ -456,8 +459,8 @@ class App < Sinatra::Base
 
   get '/pipelines' do
     require_tokens
-    workspace_id = extract_workspace_id(params[:workspace_url])
-    github_info = extract_github_project_info(params[:github_url])
+    workspace_id = extract_workspace_id(session[:workspace_url])
+    github_info = extract_github_project_info(session[:github_url])
     
     if workspace_id.nil? || github_info.nil?
       status 400
@@ -469,11 +472,11 @@ class App < Sinatra::Base
     App.save_caches
 
     steps = [
-      { name: "Connect", number: "01", current: false, completed: true, url: "/connect?#{request.query_string}" },
-      { name: "Pipelines", number: "02", current: true, completed: false, url: "/pipelines?#{request.query_string}" },
-      { name: "Points", number: "03", current: false, completed: false, url: "/points?#{request.query_string}" },
-      { name: "Sprints", number: "04", current: false, completed: false, url: "/sprints?#{request.query_string}" },
-      { name: "Review", number: "05", current: false, completed: false, url: "/review?#{request.query_string}" }
+      { name: "Connect", number: "01", current: false, completed: true, url: "/connect" },
+      { name: "Pipelines", number: "02", current: true, completed: false, url: "/pipelines" },
+      { name: "Points", number: "03", current: false, completed: false, url: "/points" },
+      { name: "Sprints", number: "04", current: false, completed: false, url: "/sprints" },
+      { name: "Review", number: "05", current: false, completed: false, url: "/review" }
     ]
 
     erb :pipelines, locals: { steps: steps }
@@ -481,8 +484,8 @@ class App < Sinatra::Base
 
   get '/points' do
     require_tokens
-    workspace_id = extract_workspace_id(params[:workspace_url])
-    github_info = extract_github_project_info(params[:github_url])
+    workspace_id = extract_workspace_id(session[:workspace_url])
+    github_info = extract_github_project_info(session[:github_url])
     
     if workspace_id.nil? || github_info.nil?
       status 400
@@ -494,11 +497,11 @@ class App < Sinatra::Base
     App.save_caches
 
     steps = [
-      { name: "Connect", number: "01", current: false, completed: true, url: "/connect?#{request.query_string}" },
-      { name: "Pipelines", number: "02", current: false, completed: true, url: "/pipelines?#{request.query_string}" },
-      { name: "Points", number: "03", current: true, completed: false, url: "/points?#{request.query_string}" },
-      { name: "Sprints", number: "04", current: false, completed: false, url: "/sprints?#{request.query_string}" },
-      { name: "Review", number: "05", current: false, completed: false, url: "/review?#{request.query_string}" }
+      { name: "Connect", number: "01", current: false, completed: true, url: "/connect" },
+      { name: "Pipelines", number: "02", current: false, completed: true, url: "/pipelines" },
+      { name: "Points", number: "03", current: true, completed: false, url: "/points" },
+      { name: "Sprints", number: "04", current: false, completed: false, url: "/sprints" },
+      { name: "Review", number: "05", current: false, completed: false, url: "/review" }
     ]
 
     erb :points, locals: { steps: steps }
@@ -506,8 +509,8 @@ class App < Sinatra::Base
 
   get '/sprints' do
     require_tokens
-    workspace_id = extract_workspace_id(params[:workspace_url])
-    github_info = extract_github_project_info(params[:github_url])
+    workspace_id = extract_workspace_id(session[:workspace_url])
+    github_info = extract_github_project_info(session[:github_url])
     
     if workspace_id.nil? || github_info.nil?
       status 400
@@ -519,24 +522,26 @@ class App < Sinatra::Base
     App.save_caches
 
     steps = [
-      { name: "Connect", number: "01", current: false, completed: true, url: "/connect?#{request.query_string}" },
-      { name: "Pipelines", number: "02", current: false, completed: true, url: "/pipelines?#{request.query_string}" },
-      { name: "Points", number: "03", current: false, completed: true, url: "/points?#{request.query_string}" },
-      { name: "Sprints", number: "04", current: true, completed: false, url: "/sprints?#{request.query_string}" },
-      { name: "Review", number: "05", current: false, completed: false, url: "/review?#{request.query_string}" }
+      { name: "Connect", number: "01", current: false, completed: true, url: "/connect" },
+      { name: "Pipelines", number: "02", current: false, completed: true, url: "/pipelines" },
+      { name: "Points", number: "03", current: false, completed: true, url: "/points" },
+      { name: "Sprints", number: "04", current: true, completed: false, url: "/sprints" },
+      { name: "Review", number: "05", current: false, completed: false, url: "/review" }
     ]
 
     erb :sprints, locals: { steps: steps }
   end
 
   get '/review' do
+    require_tokens
+
     # Implement migration logic here
     steps = [
-      { name: "Connect", number: "01", current: false, completed: true, url: "/connect?#{request.query_string}" },
-      { name: "Pipelines", number: "02", current: false, completed: true, url: "/pipelines?#{request.query_string}" },
-      { name: "Points", number: "03", current: false, completed: true, url: "/points?#{request.query_string}" },
-      { name: "Sprints", number: "04", current: false, completed: true, url: "/sprints?#{request.query_string}" },
-      { name: "Review", number: "05", current: true, completed: false, url: "/review?#{request.query_string}" }
+      { name: "Connect", number: "01", current: false, completed: true, url: "/connect" },
+      { name: "Pipelines", number: "02", current: false, completed: true, url: "/pipelines" },
+      { name: "Points", number: "03", current: false, completed: true, url: "/points" },
+      { name: "Sprints", number: "04", current: false, completed: true, url: "/sprints" },
+      { name: "Review", number: "05", current: true, completed: false, url: "/review" }
     ]
 
     erb :review, locals: { steps: steps }
@@ -581,6 +586,11 @@ class App < Sinatra::Base
     @@github_cache.clear
     App.save_caches
     redirect back
+  end
+
+  get '/clear-values' do
+    session.clear
+    redirect '/connect'
   end
 end
 
