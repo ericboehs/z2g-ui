@@ -169,10 +169,10 @@
           const issueRow = issueCheckbox.closest('.issue-row');
           if (checkbox.checked) {
             issueRow.classList.remove('line-through', 'text-gray-400', 'hidden');
-            updatePointsDisplay(checkbox);
+            updatePointsDisplay(issueCheckbox);
           } else {
             issueRow.classList.add('line-through', 'text-gray-400');
-            updatePointsDisplay(checkbox);
+            updatePointsDisplay(issueCheckbox);
             hideUncheckedIssueWithDelay(issueRow);
           }
         });
@@ -246,13 +246,29 @@
       }
 
       function updatePointsDisplay(checkbox) {
+        // If checkbox is a pipeline checkbox, update all issues in that pipeline
+        if (checkbox.classList.contains('pipeline-checkbox')) {
+          const pipelineId = checkbox.dataset.pipelineId;
+          const contentRow = document.getElementById('content-' + pipelineId);
+          const issueCheckboxes = contentRow.querySelectorAll('.issue-checkbox');
+          issueCheckboxes.forEach(issueCheckbox => {
+            updateIssuePointsDisplay(issueCheckbox);
+          });
+        } else {
+          // Otherwise update just this issue
+          updateIssuePointsDisplay(checkbox);
+        }
+      }
+
+      function updateIssuePointsDisplay(checkbox) {
         const issueRow = checkbox.closest('.issue-row');
+        if (!issueRow) return;
         const githubPoints = parseInt(issueRow.dataset.githubPoints);
         const zenhubPoints = parseInt(issueRow.dataset.zenhubPoints);
         const currentStatus = issueRow.querySelector('.current-status');
         const newStatus = issueRow.querySelector('.new-status');
-
         const arrow = issueRow.querySelector('.new-arrow');
+
         if (checkbox.checked && githubPoints) {
           currentStatus.classList.add('line-through', 'text-gray-400');
           arrow.classList.remove('hidden');

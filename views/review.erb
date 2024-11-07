@@ -13,7 +13,10 @@
         <h3 class="text-lg font-medium mb-4">Issues to be Migrated</h3>
         <div id="migration-summary"></div>
       </div>
-      <form class="space-y-6" method="POST" action="/migrate">
+      <form class="space-y-6" method="POST" action="/migrate" id="migrationForm">
+        <input type="hidden" name="statusMappings" id="statusMappingsInput">
+        <input type="hidden" name="sprintMappings" id="sprintMappingsInput">
+        <input type="hidden" name="pointsMappings" id="pointsMappingsInput">
         <div>
           <button type="submit" class="flex w-full justify-center rounded-md border border-transparent bg-indigo-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
             Start Migration
@@ -168,6 +171,13 @@
         nextStepInfo.textContent = `Selected Issues: ${totalIssues}`;
       }
     }
+
+    // Set form values before submit
+    document.getElementById('migrationForm').addEventListener('submit', function(e) {
+      document.getElementById('statusMappingsInput').value = sessionStorage.getItem('statusMappings') || '{}';
+      document.getElementById('sprintMappingsInput').value = sessionStorage.getItem('sprintMappings') || '{}';
+      document.getElementById('pointsMappingsInput').value = sessionStorage.getItem('pointsMappings') || '{}';
+    });
 
     // Call initialization
     initializePage();

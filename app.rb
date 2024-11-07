@@ -530,19 +530,6 @@ class App < Sinatra::Base
   end
 
   get '/review' do
-    require_tokens
-    workspace_id = extract_workspace_id(params[:workspace_url])
-    github_info = extract_github_project_info(params[:github_url])
-    
-    if workspace_id.nil? || github_info.nil?
-      status 400
-      return "Please provide valid ZenHub workspace and GitHub project URLs."
-    end
-
-    query_zenhub_workspace(workspace_id)
-    query_github_project(github_info)
-    App.save_caches
-
     # Implement migration logic here
     steps = [
       { name: "Connect", number: "01", current: false, completed: true, url: "/connect?#{request.query_string}" },
@@ -553,6 +540,40 @@ class App < Sinatra::Base
     ]
 
     erb :review, locals: { steps: steps }
+  end
+
+  post '/migrate' do
+    require_tokens
+    
+    begin
+      # Parse the JSON data from form
+      status_mappings = JSON.parse(params[:statusMappings])
+      sprint_mappings = JSON.parse(params[:sprintMappings]) 
+      points_mappings = JSON.parse(params[:pointsMappings])
+      
+      # Log the mappings to stdout
+      puts "\n=== Migration Started ==="
+      puts "\nStatus Mappings:"
+      pp status_mappings
+      puts "\nSprint Mappings:"
+      pp sprint_mappings
+      puts "\nPoints Mappings:" 
+      pp points_mappings
+      puts "\n=== Migration Complete ===\n"
+      
+      # Redirect to done page
+      redirect "/done"
+    rescue JSON::ParserError => e
+      status 400
+      "Invalid JSON data received: #{e.message}"
+    rescue => e
+      status 500
+      "Migration failed: #{e.message}"
+    end
+  end
+
+  get '/done' do
+    erb :done
   end
 
   get '/clear-cache' do
