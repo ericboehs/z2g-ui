@@ -336,6 +336,13 @@
         const sprintRow = document.querySelector(`.sprint-checkbox[data-sprint-id="${sprintId}"]`).closest('tr');
         const select = sprintRow.querySelector('select');
         
+        // Toggle line-through based on checkbox state
+        if (checkbox.checked) {
+          issueRow.classList.remove('line-through', 'text-gray-400');
+        } else {
+          issueRow.classList.add('line-through', 'text-gray-400');
+        }
+        
         updateSprintCheckboxState(sprintId);
         updateIssueCount();
         updateStyles(select);
