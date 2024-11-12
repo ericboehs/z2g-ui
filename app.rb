@@ -467,14 +467,14 @@ class App < Sinatra::Base
   end
 
   post '/set-connection' do
-    require_tokens
-
     # Store everything in session
     session[:github_token] = params[:github_token]
     session[:zenhub_token] = params[:zenhub_token]
     session[:workspace_url] = params[:workspace_url]
     session[:github_url] = params[:github_url]
     
+    require_tokens
+
     workspace_id = extract_workspace_id(session[:workspace_url])
     github_info = extract_github_project_info(session[:github_url])
 
