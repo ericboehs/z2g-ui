@@ -172,13 +172,43 @@ class App < Sinatra::Base
       end
     end
 
+    def check_required_fields
+      missing_fields = []
+      missing_fields << "Sprint" unless @github_sprint_field && @github_sprint_field != {}
+      missing_fields << "Points" unless @github_points_field && @github_points_field != {}
+
+      if missing_fields.any?
+        settings_url = "#{session[:github_url]}/settings"
+
+        missing_fields.each do |missing_field|
+          session[:flashes] ||= []
+          session[:flashes] << {
+            type: 'error',
+            title: "#{missing_field} Field Missing",
+            message: "Add a \"#{missing_field}\" field to continue.",
+            action_text: 'Go to Project Settings →',
+            action_url: settings_url
+          }
+        end
+
+        @@zenhub_cache.clear
+        @@github_cache.clear
+        App.save_caches
+
+        redirect "/connect"
+      end
+    end
+
     def extract_github_project_info(url)
       return nil unless url
-      
+
       # Handle both formats:
       # https://github.com/orgs/owner/projects/1
       # https://github.com/owner/projects/1
       if matches = url.match(%r{github\.com/(?:orgs/)?([^/]+)/projects/(\d+)})
+        # Trim URL to just the base project URL
+        session[:github_url] = url.split('/projects/').first + '/projects/' + matches[2].to_s
+
         {
           organization: matches[1],
           project_number: matches[2].to_i
@@ -437,13 +467,7 @@ class App < Sinatra::Base
   end
 
   post '/set-connection' do
-    content_type :json
-    
-    # Validate tokens and URLs
-    if params[:github_token].to_s.empty? || params[:zenhub_token].to_s.empty?
-      status 400
-      return {error: "Both GitHub and ZenHub tokens are required"}.to_json
-    end
+    require_tokens
 
     # Store everything in session
     session[:github_token] = params[:github_token]
@@ -451,7 +475,20 @@ class App < Sinatra::Base
     session[:workspace_url] = params[:workspace_url]
     session[:github_url] = params[:github_url]
     
-    # Redirect to pipelines
+    workspace_id = extract_workspace_id(session[:workspace_url])
+    github_info = extract_github_project_info(session[:github_url])
+
+    if workspace_id.nil? || github_info.nil?
+      status 400
+      return "Please provide valid ZenHub workspace and GitHub project URLs."
+    end
+
+    query_zenhub_workspace(workspace_id)
+    query_github_project(github_info)
+    check_required_fields
+    App.save_caches
+
+    # Redirect to pipelines if all required fields exist
     redirect "/pipelines"
   end
 
@@ -479,6 +516,7 @@ class App < Sinatra::Base
 
     query_zenhub_workspace(workspace_id)
     query_github_project(github_info)
+    check_required_fields
     App.save_caches
 
     steps = [
@@ -499,11 +537,12 @@ class App < Sinatra::Base
     
     if workspace_id.nil? || github_info.nil?
       status 400
-      return "Please provide valid ZenHub workspace and GitHub project URLs."
+      return "Please provide valid ZenHub workspace and GitHub Project URLs."
     end
 
     query_zenhub_workspace(workspace_id)
     query_github_project(github_info)
+    check_required_fields
     App.save_caches
 
     steps = [
@@ -529,6 +568,7 @@ class App < Sinatra::Base
 
     query_zenhub_workspace(workspace_id)
     query_github_project(github_info)
+    check_required_fields
     App.save_caches
 
     steps = [
@@ -544,6 +584,19 @@ class App < Sinatra::Base
 
   get '/review' do
     require_tokens
+
+    workspace_id = extract_workspace_id(session[:workspace_url])
+    github_info = extract_github_project_info(session[:github_url])
+
+    if workspace_id.nil? || github_info.nil?
+      status 400
+      return "Please provide valid ZenHub workspace and GitHub project URLs."
+    end
+
+    query_zenhub_workspace(workspace_id)
+    query_github_project(github_info)
+    check_required_fields
+    App.save_caches
 
     # Implement migration logic here
     steps = [
@@ -570,6 +623,7 @@ class App < Sinatra::Base
 
     query_zenhub_workspace(workspace_id)
     query_github_project(github_info)
+    check_required_fields
     App.save_caches
     
     begin
@@ -658,7 +712,6 @@ class App < Sinatra::Base
             end
 
             $logger.info "Set points for issue #{issue['number']}"
-            require'pry';binding.pry
           rescue => e
             $logger.error "Failed to set points for issue #{issue['number']}: #{e.message}"
           end
