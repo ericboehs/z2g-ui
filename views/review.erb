@@ -18,11 +18,23 @@
         <input type="hidden" name="sprintMappings" id="sprintMappingsInput">
         <input type="hidden" name="pointsMappings" id="pointsMappingsInput">
         <div>
-          <button type="submit" class="flex w-full justify-center rounded-md border border-transparent bg-indigo-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
+          <button type="submit" class="flex w-full justify-center rounded-md border border-transparent bg-indigo-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                  data-disable-with="Migration Started..."
+                  onclick="showLoadingMessage()">
             Start Migration
           </button>
         </div>
+
+        <p id="loading-message" class="mt-2 text-sm text-gray-500 text-center hidden">
+          Large projects will take longer.
+        </p>
       </form>
+
+      <script>
+        function showLoadingMessage() {
+          document.getElementById('loading-message').classList.remove('hidden');
+        }
+      </script>
     </div>
   </div>
 
