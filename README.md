@@ -1,4 +1,4 @@
-# z2g - a tool to aide in migrating from ZenHub Workspaces to GitHub Projects
+# z2g - a tool to aid in migrating from ZenHub Workspaces to GitHub Projects
 
 ![Connect View](screenshots/connect.png)
 ![Pipelines View](screenshots/pipelines.png)
