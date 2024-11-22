@@ -170,6 +170,33 @@ class App < Sinatra::Base
       if session[:github_token].nil? || session[:zenhub_token].nil?
         redirect "/connect?#{request.query_string}"
       end
+
+      # Check GitHub token scopes
+      uri = URI('https://api.github.com/user')
+      http = Net::HTTP.new(uri.host, uri.port)
+      http.use_ssl = true
+      
+      request = Net::HTTP::Get.new(uri)
+      request['Authorization'] = "Bearer #{session[:github_token]}"
+      response = http.request(request)
+      
+      scopes = response['X-OAuth-Scopes']&.split(',')&.map(&:strip) || []
+      required_scopes = ['read:project', 'project']
+      # Check if at least one of the required scopes is present
+      has_required_scope = required_scopes.any? { |scope| scopes.include?(scope) }
+      missing_scopes = has_required_scope ? [] : ['read:project']
+      
+      if !missing_scopes.empty?
+        session[:flashes] ||= []
+        session[:flashes] << {
+          type: 'error',
+          title: 'GitHub Token Missing Required Scopes',
+          message: "Your GitHub token needs these additional scopes: #{missing_scopes.join(', ')}. Please generate a new token with the required scopes.",
+          action_text: 'GitHub Token Settings →',
+          action_url: 'https://github.com/settings/tokens'
+        }
+        redirect "/connect"
+      end
     end
 
     def check_required_fields
