@@ -201,18 +201,18 @@ class App < Sinatra::Base
 
     def check_required_fields
       missing_fields = []
-      missing_fields << "Sprint" unless @github_sprint_field && @github_sprint_field != {}
-      missing_fields << "Points" unless @github_points_field && @github_points_field != {}
+      missing_fields << ["Sprint", "iteration"] unless @github_sprint_field && @github_sprint_field != {}
+      missing_fields << ["Points", "number"] unless @github_points_field && @github_points_field != {}
 
       if missing_fields.any?
         settings_url = "#{session[:github_url]}/settings"
 
-        missing_fields.each do |missing_field|
+        missing_fields.each do |field, type|
           session[:flashes] ||= []
           session[:flashes] << {
             type: 'error',
-            title: "#{missing_field} Field Missing",
-            message: "Add a \"#{missing_field}\" field to continue.",
+            title: "#{field} Field Missing",
+            message: "Add a #{type} field named \"#{field}\".",
             action_text: 'Go to Project Settings →',
             action_url: settings_url
           }
